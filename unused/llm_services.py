@@ -15,7 +15,7 @@ langfuse_handler = CallbackHandler()
 def get_llm():
     """Initialize and return the specified LLM"""
 
-    logger.info(f"Using model: {config.MODEL}")
+    logger.debug(f"Using model: {config.MODEL}")
 
     if config.PROVIDER == "anthropic":
         return ChatAnthropic(api_key=config.ANTHROPIC_API_KEY, model=config.MODEL, max_tokens=config.MAX_TOKENS, temperature=config.TEMPERATURE)#thinking={"type": "enabled", "budget_tokens": 10000})

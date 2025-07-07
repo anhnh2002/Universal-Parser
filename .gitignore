@@ -2,4 +2,5 @@
 .venv/
 __pycache__/
 *.ipynb
-repos/
+src/data/
+gitgrobe/

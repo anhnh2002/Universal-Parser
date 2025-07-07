@@ -26,6 +26,17 @@ os.environ["LANGFUSE_PUBLIC_KEY"] = LANGFUSE_PUBLIC_KEY
 os.environ["LANGFUSE_SECRET_KEY"] = LANGFUSE_SECRET_KEY
 os.environ["LANGFUSE_HOST"] = LANGFUSE_HOST
 
+# output dir
+OUTPUT_DIR = "./data/outputs"
+
+
+# neo4j
+NEO4J_URI = os.getenv("NEO4J_URI")
+NEO4J_USERNAME = os.getenv("NEO4J_USERNAME")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
+NEO4J_DATABASE = os.getenv("NEO4J_DATABASE")
+
+
 # Load config from config.json
 with open("config.json", "r") as file:
     CONFIG = json.load(file)
@@ -61,162 +72,3 @@ if __name__ == "__main__":
     with open("config.json", "w") as file:
         json.dump(CONFIG, file, indent=4)
 
-# ------------------------------------------------------------
-# Language to Extension
-# ------------------------------------------------------------
-
-LANGUAGE_TO_EXTENSION = {
-    "c": [
-        ".c",
-        ".cats",
-        ".h",
-        ".idc",
-        ".w"
-    ],
-    "cpp": [
-        ".cpp",
-        ".c++",
-        ".cc",
-        ".cp",
-        ".cxx",
-        ".h",
-        ".h++",
-        ".hh",
-        ".hpp",
-        ".hxx",
-        ".inc",
-        ".inl",
-        ".ipp",
-        ".tcc",
-        ".tpp"
-    ],
-    "csharp": [
-        ".cs",
-        ".cake",
-        ".cshtml",
-        ".csx"
-    ],
-    "css": [
-        ".css",
-    ],
-    "cmake": [
-        ".cmake",
-        ".cmake.in"
-    ],
-    "cuda": [
-        ".cu",
-        ".cuh"
-    ],
-    "go": [
-        ".go",
-    ],
-    "html": [
-        ".html",
-        ".htm",
-        ".html.hl",
-        ".inc",
-        ".st",
-        ".xht",
-        ".xhtml"
-    ],
-    "java": [
-        ".java",
-    ],
-    "javascript": [
-        ".js",
-        "._js",
-        ".bones",
-        ".es",
-        ".es6",
-        ".frag",
-        ".gs",
-        ".jake",
-        ".jsb",
-        ".jscad",
-        ".jsfl",
-        ".jsm",
-        ".jss",
-        ".njs",
-        ".pac",
-        ".sjs",
-        ".ssjs",
-        ".sublime-build",
-        ".sublime-commands",
-        ".sublime-completions",
-        ".sublime-keymap",
-        ".sublime-macro",
-        ".sublime-menu",
-        ".sublime-mousemap",
-        ".sublime-project",
-        ".sublime-settings",
-        ".sublime-theme",
-        ".sublime-workspace",
-        ".sublime_metrics",
-        ".sublime_session",
-        ".xsjs",
-        ".xsjslib"
-    ],
-    "kotlin": [
-        ".kt",
-        ".ktm",
-        ".kts"
-    ],
-    "lua": [
-        ".lua",
-        ".fcgi",
-        ".nse",
-        ".pd_lua",
-        ".rbxs",
-        ".wlua"
-    ],
-    "php": [
-        ".php",
-        ".aw",
-        ".ctp",
-        ".fcgi",
-        ".inc",
-        ".php3",
-        ".php4",
-        ".php5",
-        ".phps",
-        ".phpt"
-    ],
-    "python": [
-        ".py",
-    ],
-    "r": [
-        ".r",
-        ".rd",
-        ".rsx"
-    ],
-    "ruby": [
-        ".rb",
-        ".builder",
-        ".fcgi",
-        ".gemspec",
-        ".god",
-        ".irbrc",
-        ".jbuilder",
-        ".mspec",
-        ".pluginspec",
-        ".podspec",
-        ".rabl",
-        ".rake",
-        ".rbuild",
-        ".rbw",
-        ".rbx",
-        ".ru",
-        ".ruby",
-        ".thor",
-        ".watchr"
-    ],
-    "rust": [
-        ".rs",
-        ".rs.in",
-    ]
-}
-
-EXTENSION_TO_LANGUAGE = {}
-for language, extensions in LANGUAGE_TO_EXTENSION.items():
-    for extension in extensions:
-        EXTENSION_TO_LANGUAGE[extension] = language
