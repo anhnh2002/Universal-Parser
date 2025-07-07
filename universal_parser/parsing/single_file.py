@@ -6,12 +6,11 @@ from tree_sitter import Node as TreeSitterNode
 from tree_sitter_language_pack import get_parser
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type, before_sleep_log
 
-import config as config
-from patterns import CODE_EXTENSIONS
-from llm_services import get_llm_response
-from schema import Node, Edge
-
-from logger import logger
+from ..core import config
+from .patterns import CODE_EXTENSIONS
+from ..utils.llm import get_llm_response
+from ..core.models import Node, Edge
+from ..utils.logger import logger
 import traceback
 
 PROMPT_NORMALIZATION = """
@@ -281,6 +280,13 @@ async def parse_llm_response_with_retry(prompt: str, file_path: str, absolute_pa
             _node = Node(**node)
             _node.implementation_file = recovery_invalid_file_path(absolute_path_to_project, _node.implementation_file)
             if _node.implementation_file is not None:
+                # Extract code snippet for the node
+                _node.code_snippet = extract_code_snippet(
+                    _node.implementation_file, 
+                    _node.start_line, 
+                    _node.end_line, 
+                    absolute_path_to_project
+                )
                 nodes.append(_node)
             else:
                 pass
@@ -301,17 +307,58 @@ async def parse_llm_response_with_retry(prompt: str, file_path: str, absolute_pa
             logger.error(f"Error creating Edge object for {edge}: {e}")
             continue
     
-    # logger.info(f"Successfully parsed LLM response for {file_path}: {len(nodes)} nodes, {len(edges)} edges")
-    
     return nodes, edges
 
+# ------------------------------------------------------------
+# Code Snippet Extraction
+# ------------------------------------------------------------
+
+def extract_code_snippet(file_path: str, start_line: int, end_line: int, absolute_path_to_project: str) -> str:
+    """
+    Extract code snippet from a file between start_line and end_line (inclusive).
+    
+    Args:
+        file_path: Relative path to the file
+        start_line: Starting line number (1-indexed)
+        end_line: Ending line number (1-indexed)
+        absolute_path_to_project: Absolute path to the project root
+        
+    Returns:
+        The code snippet as a string, or empty string if extraction fails
+    """
+    try:
+        # Convert to absolute path
+        absolute_file_path = os.path.join(absolute_path_to_project, file_path)
+        
+        if not os.path.exists(absolute_file_path):
+            logger.warning(f"File not found for code snippet extraction: {absolute_file_path}")
+            return ""
+        
+        with open(absolute_file_path, 'r', encoding='utf-8') as file:
+            lines = file.readlines()
+        
+        # Convert to 0-indexed and ensure valid range
+        start_idx = max(0, start_line)
+        end_idx = min(len(lines), end_line + 1)
+        
+        if start_idx >= len(lines) or end_idx <= start_idx:
+            logger.warning(f"Invalid line range for {file_path}: {start_line}-{end_line}")
+            return ""
+        
+        # Extract and return the snippet
+        snippet_lines = lines[start_idx:end_idx]
+        return ''.join(snippet_lines).rstrip()
+        
+    except Exception as e:
+        logger.error(f"Error extracting code snippet from {file_path} (lines {start_line}-{end_line}): {e}")
+        return ""
 
 async def extract_nodes_and_edges(
     file_path: str,
     absolute_path_to_project: str,
     repo_name: str = "default"
 ):
-
+    """Extract nodes and edges from a single file."""
     relative_path = os.path.relpath(file_path, absolute_path_to_project)
 
     try:
@@ -340,7 +387,25 @@ async def extract_nodes_and_edges(
             # read nodes and edges from json
             with open(output_path, "r") as file:
                 result = json.load(file)
-                nodes = [Node(**node) for node in result["nodes"]]
+                nodes = []
+                for node_data in result["nodes"]:
+                    # Handle backward compatibility - add code_snippet if missing
+                    if 'code_snippet' not in node_data:
+                        node_data['code_snippet'] = ""
+                    
+                    _node = Node(**node_data)
+                    
+                    # If code_snippet is empty, try to extract it
+                    if not _node.code_snippet and _node.implementation_file:
+                        _node.code_snippet = extract_code_snippet(
+                            _node.implementation_file,
+                            _node.start_line,
+                            _node.end_line,
+                            absolute_path_to_project
+                        )
+                    
+                    nodes.append(_node)
+                
                 edges = [Edge(**edge) for edge in result["edges"]]
 
             await asyncio.sleep(1)
@@ -371,4 +436,4 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    asyncio.run(extract_nodes_and_edges(args.file_path, args.absolute_path_to_project, args.repo_name + f"-{config.LLM_MODEL.split('/')[-1]}"))
+    asyncio.run(extract_nodes_and_edges(args.file_path, args.absolute_path_to_project, args.repo_name + f"-{config.LLM_MODEL.split('/')[-1]}")) 

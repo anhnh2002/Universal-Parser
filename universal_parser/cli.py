@@ -11,9 +11,9 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from .parse_repository import parse_repository_main, parse_repository_incremental_main
-from .config import update_config, LLM_API_KEY
-from .logger import logger, set_log_level
+from .parsing.repository import parse_repository_main, parse_repository_incremental_main
+from .core.config import update_config, LLM_API_KEY
+from .utils.logger import logger, set_log_level
 
 
 def validate_repo_dir(repo_dir: str) -> Path:

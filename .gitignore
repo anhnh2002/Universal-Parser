@@ -2,7 +2,7 @@
 .venv/
 __pycache__/
 *.ipynb
-src/data/
+data/
 gitgrobe/
 *.egg-info/
 volume/

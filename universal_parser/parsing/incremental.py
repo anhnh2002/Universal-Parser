@@ -14,9 +14,9 @@ from typing import Dict, List, Set, Optional, Tuple, Any
 from dataclasses import dataclass, asdict
 from datetime import datetime
 
-from . import config
-from .schema import Node, Edge
-from .logger import logger
+from ..core import config
+from ..core.models import Node, Edge
+from ..utils.logger import logger
 
 
 @dataclass

@@ -1,5 +1,5 @@
 from openai import AsyncOpenAI
-from .config import LLM_MODEL, LLM_BASE_URL, LLM_API_KEY
+from ..core.config import LLM_MODEL, LLM_BASE_URL, LLM_API_KEY
 
 
 async def get_llm_response(prompt: str) -> str:
