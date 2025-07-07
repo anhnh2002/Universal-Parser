@@ -6,12 +6,11 @@ from tree_sitter import Node as TreeSitterNode
 from tree_sitter_language_pack import get_parser
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type, before_sleep_log
 
-import config as config
-from patterns import CODE_EXTENSIONS
-from llm_services import get_llm_response
-from schema import Node, Edge
-
-from logger import logger
+from . import config
+from .patterns import CODE_EXTENSIONS
+from .llm_services import get_llm_response
+from .schema import Node, Edge
+from .logger import logger
 import traceback
 
 PROMPT_NORMALIZATION = """
@@ -301,8 +300,6 @@ async def parse_llm_response_with_retry(prompt: str, file_path: str, absolute_pa
             logger.error(f"Error creating Edge object for {edge}: {e}")
             continue
     
-    # logger.info(f"Successfully parsed LLM response for {file_path}: {len(nodes)} nodes, {len(edges)} edges")
-    
     return nodes, edges
 
 
@@ -311,7 +308,7 @@ async def extract_nodes_and_edges(
     absolute_path_to_project: str,
     repo_name: str = "default"
 ):
-
+    """Extract nodes and edges from a single file."""
     relative_path = os.path.relpath(file_path, absolute_path_to_project)
 
     try:
@@ -371,4 +368,4 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    asyncio.run(extract_nodes_and_edges(args.file_path, args.absolute_path_to_project, args.repo_name + f"-{config.LLM_MODEL.split('/')[-1]}"))
+    asyncio.run(extract_nodes_and_edges(args.file_path, args.absolute_path_to_project, args.repo_name + f"-{config.LLM_MODEL.split('/')[-1]}")) 

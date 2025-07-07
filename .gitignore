@@ -4,3 +4,5 @@ __pycache__/
 *.ipynb
 src/data/
 gitgrobe/
+*.egg-info/
+volume/

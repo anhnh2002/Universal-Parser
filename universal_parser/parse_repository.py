@@ -9,12 +9,11 @@ from tqdm import tqdm
 import fnmatch
 import sys
 
-import config as config
-from parse_single_file import extract_nodes_and_edges
-from schema import Node, Edge
-from patterns import DEFAULT_IGNORE_PATTERNS, DEFAULT_INCLUDE_PATTERNS, CODE_EXTENSIONS
-
-from logger import logger
+from . import config
+from .parse_single_file import extract_nodes_and_edges
+from .schema import Node, Edge
+from .patterns import DEFAULT_IGNORE_PATTERNS, DEFAULT_INCLUDE_PATTERNS, CODE_EXTENSIONS
+from .logger import logger
 
 
 class RepositoryParser:

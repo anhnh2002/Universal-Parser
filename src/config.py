@@ -6,25 +6,9 @@ from dotenv import load_dotenv, find_dotenv
 
 load_dotenv(find_dotenv())
 
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-ANTHROPIC_MODEL = "claude-sonnet-4-20250514"
-# ANTHROPIC_MODEL = "claude-3-5-haiku-20241022"
-
-FIREWORKS_API_KEY = os.getenv("FIREWORKS_API_KEY")
-# FIREWORKS_MODEL = "accounts/fireworks/models/deepseek-r1-0528"
-# FIREWORKS_MODEL = "accounts/fireworks/models/deepseek-r1-basic"
-# FIREWORKS_MODEL = "accounts/fireworks/models/deepseek-v3-0324"
-FIREWORKS_MODEL = "accounts/fireworks/models/qwen3-235b-a22b"
-FIREWORKS_EMBEDDING_MODEL = "nomic-ai/nomic-embed-text-v1.5"
-
-# langfuse
-LANGFUSE_PUBLIC_KEY = os.getenv("LANGFUSE_PUBLIC_KEY")
-LANGFUSE_SECRET_KEY = os.getenv("LANGFUSE_SECRET_KEY")
-LANGFUSE_HOST = "https://cloud.langfuse.com"
-
-os.environ["LANGFUSE_PUBLIC_KEY"] = LANGFUSE_PUBLIC_KEY
-os.environ["LANGFUSE_SECRET_KEY"] = LANGFUSE_SECRET_KEY
-os.environ["LANGFUSE_HOST"] = LANGFUSE_HOST
+LLM_MODEL=os.getenv("LLM_MODEL", "gpt4.1-nano")
+LLM_BASE_URL=os.getenv("LLM_BASE_URL", "http://0.0.0.0:4000/")
+LLM_API_KEY=os.getenv("LLM_API_KEY", "sk-1234")
 
 # output dir
 OUTPUT_DIR = "./data/outputs"

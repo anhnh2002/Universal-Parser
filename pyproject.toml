@@ -1,0 +1,79 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "universal-parser"
+version = "0.1.0"
+description = "A tool for extracting structured information from codebases using AST parsing and LLM analysis"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+    {name = "Your Name", email = "your.email@example.com"},
+]
+keywords = ["code analysis", "ast parsing", "repository analysis", "llm", "code structure"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+dependencies = [
+    "openai>=1.78.1",
+    "pydantic>=2.11.7",
+    "tree-sitter>=0.23.2",
+    "tree-sitter-language-pack>=0.8.0",
+    "tenacity>=9.1.2",
+    "tqdm>=4.67.1",
+    "python-dotenv>=1.1.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.20.0",
+    "black>=22.0.0",
+    "isort>=5.0.0",
+    "mypy>=1.0.0",
+    "ruff>=0.1.0",
+]
+
+[project.scripts]
+universal-parse = "universal_parser.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/anhnh2002/Universal-Parser"
+Repository = "https://github.com/anhnh2002/Universal-Parser"
+Issues = "https://github.com/anhnh2002/Universal-Parser/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["universal_parser*"]
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+
+[tool.isort]
+profile = "black"
+line_length = 88
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.ruff]
+target-version = "py38"
+line-length = 88 
