@@ -6,6 +6,7 @@ class Node(BaseModel):
     start_line: int | str
     end_line: int | str
     type: str
+    code_snippet: str = ""
 
     @classmethod
     @model_validator(mode='after')

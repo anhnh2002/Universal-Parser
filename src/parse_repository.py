@@ -20,9 +20,9 @@ from logger import logger
 class RepositoryParser:
     """Class to handle parsing of entire repositories."""
     
-    def __init__(self, repo_path: str, repo_name: Optional[str] = None):
-        self.repo_path = Path(repo_path).resolve()
-        self.repo_name = repo_name or self.repo_path.name
+    def __init__(self, repo_dir: str, repo_name: Optional[str] = None):
+        self.repo_dir = Path(repo_dir).resolve()
+        self.repo_name = repo_name or self.repo_dir.name
         self.repo_name = self.repo_name + f"-{config.LLM_MODEL.split('/')[-1]}"
         self.supported_files: List[Path] = []
         self.all_nodes: List[Node] = []
@@ -31,16 +31,16 @@ class RepositoryParser:
         
     def discover_files(self) -> List[Path]:
         """Discover all supported files in the repository."""
-        logger.info(f"Discovering files in repository: {self.repo_path}")
+        logger.info(f"Discovering files in repository: {self.repo_dir}")
         
         supported_files: List[Path] = []
         total_files = 0
         
-        for root, dirs, files in os.walk(self.repo_path):
+        for root, dirs, files in os.walk(self.repo_dir):
             # Skip common directories that shouldn't be parsed
             # Get relative path from repo root for pattern matching
             try:
-                relative_root = str(Path(root).relative_to(self.repo_path))
+                relative_root = str(Path(root).relative_to(self.repo_dir))
             except ValueError:
                 # If relative_to fails, use empty string for repo root
                 relative_root = ""
@@ -53,7 +53,7 @@ class RepositoryParser:
                 
                 # Get relative path from repo root for pattern matching
                 try:
-                    relative_path = str(file_path.relative_to(self.repo_path))
+                    relative_path = str(file_path.relative_to(self.repo_dir))
                 except ValueError:
                     # If relative_to fails, use the current approach
                     relative_path = root
@@ -130,7 +130,7 @@ class RepositoryParser:
             logger.debug(f"Processing file: {file_path}")
             nodes, edges = await extract_nodes_and_edges(
                 str(file_path), 
-                str(self.repo_path), 
+                str(self.repo_dir), 
                 self.repo_name
             )
             
@@ -202,7 +202,7 @@ class RepositoryParser:
         result = {
             "repository": {
                 "name": self.repo_name,
-                "path": str(self.repo_path),
+                "path": str(self.repo_dir),
                 "total_files_processed": len(self.supported_files) - len(self.failed_files),
                 "total_files_failed": len(self.failed_files),
                 "failed_files": self.failed_files
@@ -246,7 +246,7 @@ class RepositoryParser:
     
     async def parse_repository(self, max_concurrent: int = 5) -> str:
         """Main method to parse the entire repository."""
-        logger.info(f"Starting repository parsing for: {self.repo_path}")
+        logger.info(f"Starting repository parsing for: {self.repo_dir}")
         
         # Discover files
         self.discover_files()
@@ -266,18 +266,18 @@ class RepositoryParser:
 
 
 async def parse_repository_main(
-    repo_path: str, 
+    repo_dir: str, 
     repo_name: Optional[str] = None, 
     max_concurrent: int = 5
 ) -> str:
     """Main function to parse a repository."""
-    parser = RepositoryParser(repo_path, repo_name)
+    parser = RepositoryParser(repo_dir, repo_name)
     return await parser.parse_repository(max_concurrent)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Parse an entire repository for nodes and edges")
-    parser.add_argument("--repo-path", required=True, type=str, 
+    parser.add_argument("--repo-dir", required=True, type=str, 
                        help="The absolute path to the repository to parse")
     parser.add_argument("--repo-name", type=str, default=None,
                        help="Name for the repository (defaults to directory name)")
@@ -287,18 +287,18 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     # Validate repository path
-    repo_path = Path(args.repo_path).resolve()
-    if not repo_path.exists():
-        logger.error(f"Repository path does not exist: {repo_path}")
+    repo_dir = Path(args.repo_dir).resolve()
+    if not repo_dir.exists():
+        logger.error(f"Repository path does not exist: {repo_dir}")
         exit(1)
     
-    if not repo_path.is_dir():
-        logger.error(f"Repository path is not a directory: {repo_path}")
+    if not repo_dir.is_dir():
+        logger.error(f"Repository path is not a directory: {repo_dir}")
         exit(1)
     
     # Run the parser
     asyncio.run(parse_repository_main(
-        str(repo_path), 
+        str(repo_dir), 
         args.repo_name, 
         args.max_concurrent
     )) 

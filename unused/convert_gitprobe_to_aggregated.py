@@ -214,7 +214,7 @@ def convert_gitprobe_to_aggregated(
     functions_file: str,
     output_file: str,
     repo_name: str = None,
-    repo_path: str = None
+    repo_dir: str = None
 ):
     """
     Convert gitprobe output to aggregated_results.json format.
@@ -224,7 +224,7 @@ def convert_gitprobe_to_aggregated(
         functions_file: Path to functions.json  
         output_file: Path to output aggregated_results.json
         repo_name: Repository name (optional)
-        repo_path: Repository path (optional)
+        repo_dir: Repository path (optional)
     """
     # Load input files
     with open(relationships_file, 'r') as f:
@@ -341,7 +341,7 @@ def convert_gitprobe_to_aggregated(
     result = {
         'repository': {
             'name': repo_name or 'unknown',
-            'path': repo_path or 'unknown',
+            'path': repo_dir or 'unknown',
             'total_files_processed': len(set(normalize_path(func['file_path'], temp_dir_pattern) for func in functions)),
             'total_files_failed': 0,
             'failed_files': []
@@ -377,7 +377,7 @@ if __name__ == '__main__':
     parser.add_argument('functions_file', help='Path to functions.json')
     parser.add_argument('output_file', help='Path to output aggregated_results.json')
     parser.add_argument('--repo-name', help='Repository name')
-    parser.add_argument('--repo-path', help='Repository path')
+    parser.add_argument('--repo-dir', help='Repository path')
     
     args = parser.parse_args()
     
@@ -386,5 +386,5 @@ if __name__ == '__main__':
         args.functions_file,
         args.output_file,
         args.repo_name,
-        args.repo_path
+        args.repo_dir
     ) 

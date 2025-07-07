@@ -198,7 +198,7 @@ class Neo4jService:
         with self.driver.session(database=config.NEO4J_DATABASE) as session:
             query = """
                 MERGE (r:Repository {name: $repo_name})
-                SET r.path = $repo_path,
+                SET r.path = $repo_dir,
                     r.total_files_processed = $total_files_processed,
                     r.total_files_failed = $total_files_failed,
                     r.failed_files = $failed_files,
@@ -210,7 +210,7 @@ class Neo4jService:
             session.run(
                 query,
                 repo_name=repo_name,
-                repo_path=repo_data.get('path', ''),
+                repo_dir=repo_data.get('path', ''),
                 total_files_processed=repo_data.get('total_files_processed', 0),
                 total_files_failed=repo_data.get('total_files_failed', 0),
                 failed_files=repo_data.get('failed_files', [])

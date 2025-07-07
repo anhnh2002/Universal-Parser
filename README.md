@@ -47,10 +47,10 @@ echo "LLM_API_KEY=your-openai-api-key-here" > .env
 
 ```bash
 # Basic usage
-universal-parse --repo-path /path/to/your/repository
+universal-parse --repo-dir /path/to/your/repository
 
 # With custom settings
-universal-parse --repo-path /path/to/repo --repo-name my-project --max-concurrent 10
+universal-parse --repo-dir /path/to/repo --repo-name my-project --max-concurrent 10
 ```
 
 ## Usage Examples
@@ -58,14 +58,14 @@ universal-parse --repo-path /path/to/repo --repo-name my-project --max-concurren
 ### Basic Repository Analysis
 
 ```bash
-universal-parse --repo-path /Users/anhnh/Documents/vscode/whisper.cpp --repo-name whisper.cpp
+universal-parse --repo-dir /Users/anhnh/Documents/vscode/whisper.cpp --repo-name whisper.cpp
 ```
 
 ### Advanced Configuration
 
 ```bash
 universal-parse \
-  --repo-path /path/to/repo \
+  --repo-dir /path/to/repo \
   --repo-name my-project \
   --max-concurrent 10 \
   --model gpt-4o \
@@ -77,10 +77,10 @@ universal-parse \
 
 ```bash
 # Use GPT-4
-universal-parse --repo-path /path/to/repo --model gpt-4o
+universal-parse --repo-dir /path/to/repo --model gpt-4o
 
 # Use GPT-4o-mini (faster, cheaper)
-universal-parse --repo-path /path/to/repo --model gpt-4o-mini
+universal-parse --repo-dir /path/to/repo --model gpt-4o-mini
 ```
 
 ## Configuration
