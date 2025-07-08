@@ -5,7 +5,7 @@ This module provides graph analysis capabilities for parsed repository data.
 """
 
 from .graph_analyzer import GraphAnalyzer
-from .khop_analyzer import KHopAnalyzer
 from .file_summary import FileSummaryAnalyzer
+from .definition_analyzer import DefinitionAnalyzer
 
-__all__ = ['GraphAnalyzer', 'KHopAnalyzer', 'FileSummaryAnalyzer'] 
+__all__ = ['GraphAnalyzer', 'FileSummaryAnalyzer', 'DefinitionAnalyzer'] 

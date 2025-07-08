@@ -26,7 +26,6 @@ class FileMetadata:
     last_modified: float
     last_parsed: float
     file_size: int
-    content_hash: Optional[str] = None
     parse_successful: bool = True
     error_message: Optional[str] = None
 
@@ -112,17 +111,7 @@ class ChangeDetector:
         
         logger.debug(f"Saved metadata for {len(self.repo_metadata.files)} files")
     
-    def get_file_content_hash(self, file_path: Path) -> str:
-        """Calculate content hash for a file."""
-        try:
-            with open(file_path, 'rb') as f:
-                content = f.read()
-                return hashlib.sha256(content).hexdigest()[:16]  # Short hash
-        except Exception as e:
-            logger.warning(f"Failed to calculate hash for {file_path}: {e}")
-            return ""
-    
-    def is_file_changed(self, file_path: Path, use_content_hash: bool = False) -> bool:
+    def is_file_changed(self, file_path: Path) -> bool:
         """Check if a file has changed since last parse."""
         if not self.repo_metadata:
             return True
@@ -153,13 +142,6 @@ class ChangeDetector:
         if stat.st_size != file_metadata.file_size:
             logger.debug(f"File size changed: {relative_path}")
             return True
-            
-        # Optional content hash check (more thorough but slower)
-        if use_content_hash and file_metadata.content_hash:
-            current_hash = self.get_file_content_hash(file_path)
-            if current_hash != file_metadata.content_hash:
-                logger.debug(f"File content hash changed: {relative_path}")
-                return True
                 
         return False
     
@@ -167,8 +149,7 @@ class ChangeDetector:
         self, 
         file_path: Path, 
         parse_successful: bool = True, 
-        error_message: Optional[str] = None,
-        use_content_hash: bool = False
+        error_message: Optional[str] = None
     ) -> None:
         """Update metadata for a parsed file."""
         if not self.repo_metadata:
@@ -187,28 +168,24 @@ class ChangeDetector:
         stat = file_path.stat()
         current_time = time.time()
         
-        content_hash = None
-        if use_content_hash:
-            content_hash = self.get_file_content_hash(file_path)
         
         self.repo_metadata.files[relative_path] = FileMetadata(
             relative_path=relative_path,
             last_modified=stat.st_mtime,
             last_parsed=current_time,
             file_size=stat.st_size,
-            content_hash=content_hash,
             parse_successful=parse_successful,
             error_message=error_message
         )
         
         self.repo_metadata.total_files_tracked = len(self.repo_metadata.files)
     
-    def get_changed_files(self, file_paths: List[Path], use_content_hash: bool = False) -> List[Path]:
+    def get_changed_files(self, file_paths: List[Path]) -> List[Path]:
         """Get list of files that have changed since last parse."""
         changed_files = []
         
         for file_path in file_paths:
-            if self.is_file_changed(file_path, use_content_hash):
+            if self.is_file_changed(file_path):
                 changed_files.append(file_path)
                 
         logger.info(f"Found {len(changed_files)} changed files out of {len(file_paths)} total files")

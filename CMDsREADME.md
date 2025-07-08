@@ -19,12 +19,9 @@ python load_to_neo4j.py --file outputs/DocAgent-claude-sonnet-4-20250514/aggrega
 
 #CLI
 ```bash
-universal-parse parse --repo-dir /Users/anhnh/Documents/vscode/deepwiki-agent-universal-parser/src/data/repos/titan-sight --max-concurrent 5 --output-dir /Users/anhnh/Documents/vscode/deepwiki-agent-universal-parser/volume
+universal-parse parse --repo-dir /Users/anhnh/Documents/vscode/deepwiki-agent-universal-parser/data/repos/titan-sight --max-concurrent 5 --output-dir /Users/anhnh/Documents/vscode/deepwiki-agent-universal-parser/volume
 
+universal-parse get-definition --aggregated-results volume/titan-sight-gemini-flash-25/aggregated_results.json --file-path /Users/anhnh/Documents/vscode/deepwiki-agent-universal-parser/data/repos/titan-sight/src/search/providers/base.py --node-name SearchProvider
 
-
-python -m universal_parser.cli khop --aggregated-results volume/titan-sight-gemini-flash-25/aggregated_results.json --node-id "src.search.providers.base.SearchProvider" --k 2
-
-python -m universal_parser.cli khop --aggregated-results volume/titan-sight-gemini-flash-25/aggregated_results.json --node-id "src.schemas.SearchResult" --k 1 --include-code --direction incoming
 ```
 

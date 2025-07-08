@@ -276,9 +276,7 @@ class RepositoryParser:
 
     async def parse_repository_incremental(
         self, 
-        max_concurrent: int = 5, 
-        use_content_hash: bool = False,
-        force_reparse: Optional[List[str]] = None
+        max_concurrent: int = 5
     ) -> str:
         """Parse repository incrementally, only processing changed files."""
         logger.info(f"Starting incremental repository parsing for: {self.repo_dir}")
@@ -297,21 +295,7 @@ class RepositoryParser:
         self.change_detector.cleanup_orphaned_metadata(self.supported_files)
         
         # Get changed files
-        changed_files = self.change_detector.get_changed_files(self.supported_files, use_content_hash)
-        
-        # Add force-reparse files
-        if force_reparse:
-            force_reparse_paths = []
-            for pattern in force_reparse:
-                for file_path in self.supported_files:
-                    relative_path = str(file_path.relative_to(self.repo_dir))
-                    if fnmatch.fnmatch(relative_path, pattern):
-                        if file_path not in changed_files:
-                            changed_files.append(file_path)
-                            force_reparse_paths.append(file_path)
-            
-            if force_reparse_paths:
-                logger.info(f"Force re-parsing {len(force_reparse_paths)} files matching patterns: {force_reparse}")
+        changed_files = self.change_detector.get_changed_files(self.supported_files)
         
         if not changed_files:
             logger.info("No changed files detected. Repository is up to date.")
@@ -338,7 +322,7 @@ class RepositoryParser:
             )
         
         # Parse only the changed files
-        await self.parse_files_concurrent_incremental(changed_files, max_concurrent, use_content_hash)
+        await self.parse_files_concurrent_incremental(changed_files, max_concurrent)
         
         # Add new data to aggregated results
         aggregated_data = self.incremental_aggregator.add_file_data_to_aggregated(
@@ -371,8 +355,7 @@ class RepositoryParser:
     async def parse_files_concurrent_incremental(
         self, 
         files_to_parse: List[Path], 
-        max_concurrent: int = 5,
-        use_content_hash: bool = False
+        max_concurrent: int = 5
     ) -> None:
         """Parse a specific list of files with controlled concurrency for incremental updates."""
         if not files_to_parse:
@@ -386,7 +369,7 @@ class RepositoryParser:
         
         async def parse_with_semaphore(file_path):
             async with semaphore:
-                return await self.parse_single_file_wrapper_incremental(file_path, use_content_hash)
+                return await self.parse_single_file_wrapper_incremental(file_path)
         
         # Create tasks for all files
         tasks = [parse_with_semaphore(file_path) for file_path in files_to_parse]
@@ -421,8 +404,7 @@ class RepositoryParser:
     
     async def parse_single_file_wrapper_incremental(
         self, 
-        file_path: Path, 
-        use_content_hash: bool = False
+        file_path: Path
     ) -> Tuple[Optional[List[Node]], Optional[List[Edge]], str]:
         """Wrapper to parse a single file for incremental updates and update metadata."""
         try:
@@ -447,8 +429,7 @@ class RepositoryParser:
                 self.change_detector.update_file_metadata(
                     file_path, 
                     parse_successful=True, 
-                    error_message=None,
-                    use_content_hash=use_content_hash
+                    error_message=None
                 )
                 
                 return nodes, edges, str(file_path)
@@ -459,8 +440,7 @@ class RepositoryParser:
                 self.change_detector.update_file_metadata(
                     file_path, 
                     parse_successful=False, 
-                    error_message="Parsing returned None",
-                    use_content_hash=use_content_hash
+                    error_message="Parsing returned None"
                 )
                 
                 return None, None, str(file_path)
@@ -472,8 +452,7 @@ class RepositoryParser:
             self.change_detector.update_file_metadata(
                 file_path, 
                 parse_successful=False, 
-                error_message=str(e),
-                use_content_hash=use_content_hash
+                error_message=str(e)
             )
             
             return None, None, str(file_path)
@@ -504,13 +483,11 @@ async def parse_repository_main(
 async def parse_repository_incremental_main(
     repo_dir: str, 
     repo_name: Optional[str] = None, 
-    max_concurrent: int = 5,
-    use_content_hash: bool = False,
-    force_reparse: Optional[List[str]] = None
+    max_concurrent: int = 5
 ) -> str:
     """Main function to incrementally update repository parsing results."""
     parser = RepositoryParser(repo_dir, repo_name)
-    return await parser.parse_repository_incremental(max_concurrent, use_content_hash, force_reparse)
+    return await parser.parse_repository_incremental(max_concurrent)
 
 
 if __name__ == "__main__":

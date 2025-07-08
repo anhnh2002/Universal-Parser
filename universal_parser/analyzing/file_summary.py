@@ -16,9 +16,8 @@ from ..utils.logger import logger
 class FileSummary:
     """Container for file summary analysis results."""
     
-    def __init__(self, file_path: str, repo_path: Optional[str] = None):
+    def __init__(self, file_path: str):
         self.file_path = file_path
-        self.repo_path = repo_path
         self.nodes: List[GraphNode] = []
         self.total_lines: Optional[int] = None
         self.file_exists: bool = False
@@ -46,8 +45,7 @@ class FileSummaryAnalyzer:
     
     def analyze_file_summary(
         self, 
-        file_path: str, 
-        repo_path: Optional[str] = None
+        file_path: str
     ) -> FileSummary:
         """
         Analyze a file and generate a summary.
@@ -63,7 +61,7 @@ class FileSummaryAnalyzer:
             ValueError: If the file is not found in the graph
         """
         # Normalize the file path
-        normalized_path = self._normalize_file_path(file_path, repo_path)
+        normalized_path = self._normalize_file_path(file_path)
         
         logger.info(f"Analyzing file summary for: {normalized_path}")
         
@@ -87,21 +85,10 @@ class FileSummaryAnalyzer:
                 )
         
         # Create the summary
-        summary = FileSummary(normalized_path, repo_path)
+        summary = FileSummary(normalized_path)
         
         for node in nodes_in_file:
             summary.add_node(node)
-        
-        # Try to get actual file line count if file exists
-        if repo_path:
-            full_file_path = Path(repo_path) / normalized_path
-            if full_file_path.exists():
-                summary.file_exists = True
-                try:
-                    with open(full_file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                        summary.total_lines = sum(1 for _ in f)
-                except Exception as e:
-                    logger.warning(f"Could not read file {full_file_path}: {e}")
         
         logger.info(f"Found {summary.get_total_nodes()} nodes in file: {normalized_path}")
         return summary
@@ -148,26 +135,19 @@ class FileSummaryAnalyzer:
     def format_file_summary(
         self, 
         summary: FileSummary,
-        show_line_numbers: bool = True,
-        show_node_types: bool = True,
+        k: int = 5
     ) -> str:
         """
         Format the file summary as a readable string with elide messages.
         
         Args:
             summary: The file summary result
-            show_line_numbers: Whether to show line numbers
-            show_node_types: Whether to show node types
+            k: Number of first lines to show
             
         Returns:
             Formatted string representation
         """
         lines = []
-        lines.append(f"File Summary: {summary.file_path}")
-        lines.append(f"Total Nodes: {summary.get_total_nodes()}")
-        if summary.total_lines:
-            lines.append(f"Total File Lines: {summary.total_lines}")
-        lines.append("=" * 60)
         
         if not summary.nodes:
             lines.append("No nodes found in this file.")
@@ -179,36 +159,16 @@ class FileSummaryAnalyzer:
         current_line = 1
         
         for i, node in enumerate(sorted_nodes):
-            # Show elide message for lines before this node
-            # if current_line < node.start_line:
-            #     elided_lines = node.start_line - current_line
-            #     if elided_lines > 0:
-            #         lines.append(f"... eliding lines {current_line}–{node.start_line - 1} ...")
-            #         lines.append("")
             
             # Show the node's first line
-            first_line = node.get_first_line().strip()
+            k_first_line = "\n".join(node.get_k_first_line(k=k))
             
-            # Format the node display
-            node_info = []
-            if show_line_numbers:
-                if node.start_line == node.end_line:
-                    node_info.append(f"L{node.start_line}")
-                else:
-                    node_info.append(f"L{node.start_line}-{node.end_line}")
-            
-            if show_node_types:
-                node_info.append(f"[{node.type}]")
-            
-            node_info.append(f"({node.id})")
-            
-            info_str = " ".join(node_info)
-            lines.append(f"{info_str}")
-            lines.append(f"{first_line}")
+            lines.append(node.__repr__(include_absolute_path=False))
+            lines.append(f"{k_first_line}")
             
             # Show elide message for remaining lines in this node (if any)
-            if node.end_line > node.start_line:
-                elided_in_node = node.end_line - node.start_line
+            if node.end_line > node.start_line + k:
+                elided_in_node = node.end_line - node.start_line - k
                 lines.append(f"... eliding {elided_in_node} more lines ...")
             
             lines.append("")  # Empty line between nodes
@@ -223,72 +183,6 @@ class FileSummaryAnalyzer:
                 lines.append(f"... eliding lines {current_line}–{summary.total_lines} ...")
         
         return '\n'.join(lines)
-    
-    def export_file_summary_json(self, summary: FileSummary, output_path: str):
-        """
-        Export the file summary to a JSON file.
-        
-        Args:
-            summary: The file summary result
-            output_path: Path to save the JSON file
-        """
-        import json
-        
-        # Build the export data structure
-        export_data = {
-            "analysis_type": "file_summary",
-            "file_path": summary.file_path,
-            "repo_path": summary.repo_path,
-            "total_nodes": summary.get_total_nodes(),
-            "total_file_lines": summary.total_lines,
-            "file_exists": summary.file_exists,
-            "nodes": []
-        }
-        
-        # Add detailed node information
-        for node in summary.nodes:
-            export_data["nodes"].append({
-                "id": node.id,
-                "type": node.type,
-                "start_line": node.start_line,
-                "end_line": node.end_line,
-                "first_line": node.get_first_line(),
-                "full_code_snippet": node.code_snippet
-            })
-        
-        # Write to file
-        with open(output_path, 'w', encoding='utf-8') as f:
-            json.dump(export_data, f, indent=2, ensure_ascii=False)
-        
-        logger.info(f"File summary exported to: {output_path}")
-    
-    def analyze_multiple_files(
-        self, 
-        file_paths: List[str], 
-        repo_path: Optional[str] = None
-    ) -> Dict[str, FileSummary]:
-        """
-        Analyze multiple files and generate summaries.
-        
-        Args:
-            file_paths: List of file paths to analyze
-            repo_path: Optional absolute path to the repository root
-            
-        Returns:
-            Dictionary mapping file paths to their summaries
-        """
-        results = {}
-        
-        for file_path in file_paths:
-            try:
-                summary = self.analyze_file_summary(file_path, repo_path)
-                results[file_path] = summary
-            except ValueError as e:
-                logger.warning(f"Could not analyze file {file_path}: {e}")
-                # Create empty summary for failed files
-                results[file_path] = FileSummary(file_path, repo_path)
-        
-        return results
     
     def get_available_files(self) -> List[str]:
         """Get list of all files available for analysis."""

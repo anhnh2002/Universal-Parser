@@ -5,6 +5,7 @@ This module provides the core GraphAnalyzer class that loads and processes
 aggregated results from the universal parser.
 """
 
+import os
 import json
 from pathlib import Path
 from typing import Dict, List, Set, Optional, Any
@@ -17,21 +18,33 @@ class GraphNode:
     """Represents a node in the code graph."""
     
     def __init__(self, node_data: Dict[str, Any], absolute_path_to_repo: str):
-        self.absolute_path_to_repo = absolute_path_to_repo
         self.id: str = node_data["id"]
         self.implementation_file: str = node_data["implementation_file"]
         self.start_line: int = node_data["start_line"]
         self.end_line: int = node_data["end_line"]
         self.type: str = node_data["type"]
         self.code_snippet: str = node_data["code_snippet"]
+
+        self.absolute_path_to_implementation_file = os.path.join(absolute_path_to_repo, self.implementation_file)
+
+        # remove extension from implementation file
+        self.file_level_id = self.implementation_file.split(".")[0]
+        self.file_level_id = self.file_level_id.replace("/", ".")
+        self.file_level_id = self.id.replace(self.file_level_id, "")
+        if self.file_level_id.startswith("."):
+            self.file_level_id = self.file_level_id[1:]
+
     
-    def __repr__(self):
-        return f"Line "
+    def __repr__(self, include_absolute_path: bool = False):
+        if include_absolute_path:
+            return f"* Node: {self.file_level_id} in File: {self.absolute_path_to_implementation_file} (Line {self.start_line + 1} to {self.end_line + 1})"
+        else:
+            return f"# {self.file_level_id} (Line {self.start_line + 1} to {self.end_line + 1})"
     
-    def get_first_line(self) -> str:
+    def get_k_first_line(self, k: int = 1) -> str:
         """Get the first line of the code snippet."""
         lines = self.code_snippet.strip().split('\n')
-        return lines[0] if lines else ""
+        return lines[:k] if lines else ""
 
 
 class GraphEdge:
