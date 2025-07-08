@@ -195,7 +195,7 @@ DEFAULT_INCLUDE_PATTERNS = [
     # "*.yaml",
     # "*.yml",
     # "*.xml",
-    "*.md",
+    # "*.md",
     # "*.txt",
     # "*.toml",
     # "*.cfg",
