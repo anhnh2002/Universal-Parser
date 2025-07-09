@@ -13,7 +13,7 @@ from typing import Optional
 import traceback
 
 from .parsing.repository import parse_repository_main, parse_repository_incremental_main
-from .core.config import update_config, LLM_API_KEY
+from .core.config import update_config
 from .utils.logger import logger, set_log_level
 from .analyzing import FileSummaryAnalyzer, DefinitionAnalyzer
 
@@ -30,14 +30,6 @@ def validate_repo_dir(repo_dir: str) -> Path:
         sys.exit(1)
     
     return path
-
-
-def check_api_key() -> None:
-    """Check if LLM API key is configured."""
-    if not LLM_API_KEY:
-        logger.error("LLM_API_KEY is not set. Please set it in environment variables or .env file")
-        logger.error("Example: export LLM_API_KEY='your-api-key-here'")
-        sys.exit(1)
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -66,7 +58,6 @@ Environment Variables:
   LLM_API_KEY       OpenAI API key (required for parse/update)
   LLM_BASE_URL      API base URL (default: https://api.openai.com/v1)
   LLM_MODEL         Model name (default: gpt-4o-mini)
-  OUTPUT_DIR        Output directory (default: ./data/outputs)
 
 For more information, visit: https://github.com/yourusername/universal-parser
         """
@@ -84,13 +75,12 @@ For more information, visit: https://github.com/yourusername/universal-parser
             type=str,
             help="The absolute directory to the repository to parse"
         )
-        
-        # Optional arguments
+
         subparser.add_argument(
-            "--repo-name", 
+            "--output-dir", 
             type=str, 
-            default=None,
-            help="Name for the repository (defaults to directory name)"
+            required=True,
+            help="The absolute path to the output directory"
         )
         
         subparser.add_argument(
@@ -120,13 +110,6 @@ For more information, visit: https://github.com/yourusername/universal-parser
             type=str, 
             default=None,
             help="Custom API key"
-        )
-        
-        subparser.add_argument(
-            "--output-dir", 
-            type=str, 
-            default=None,
-            help="Custom output directory"
         )
 
         # Utility arguments
@@ -294,10 +277,6 @@ async def run_parser(args: argparse.Namespace) -> None:
         
         if args.api_key:
             config_updates["api_key"] = args.api_key
-
-        # Update output directory if specified
-        if args.output_dir:
-            config_updates["output_dir"] = args.output_dir
         
         if config_updates:
             update_config(**config_updates)
@@ -307,7 +286,7 @@ async def run_parser(args: argparse.Namespace) -> None:
             # Run incremental update
             output_file = await parse_repository_incremental_main(
                 repo_dir=str(args.repo_dir),
-                repo_name=args.repo_name,
+                output_dir=args.output_dir,
                 max_concurrent=args.max_concurrent
             )
             
@@ -320,7 +299,7 @@ async def run_parser(args: argparse.Namespace) -> None:
             # Run full parse (default)
             output_file = await parse_repository_main(
                 repo_dir=str(args.repo_dir),
-                repo_name=args.repo_name,
+                output_dir=args.output_dir,
                 max_concurrent=args.max_concurrent
             )
             
@@ -369,14 +348,12 @@ def main() -> None:
     else:
         # Parse and update commands need repo validation and API key
         args.repo_dir = validate_repo_dir(args.repo_dir)
-        check_api_key()
         
         # Print startup info
         command_name = "Incremental Update" if args.command == 'update' else "Full Parse"
         logger.info(f"🚀 Starting Universal Parser - {command_name}")
         logger.info(f"📂 Repository: {args.repo_dir}")
-        if args.repo_name:
-            logger.info(f"🏷️  Name: {args.repo_name}")
+        logger.info(f"🏷️  Output Directory: {args.output_dir}")
         logger.info(f"⚡ Concurrency: {args.max_concurrent}")
         
         # Run the parser

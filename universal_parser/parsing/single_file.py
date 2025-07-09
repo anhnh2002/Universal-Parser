@@ -356,7 +356,8 @@ def extract_code_snippet(file_path: str, start_line: int, end_line: int, absolut
 async def extract_nodes_and_edges(
     file_path: str,
     absolute_path_to_project: str,
-    repo_name: str = "default"
+    repo_name: str,
+    output_dir: str
 ):
     """Extract nodes and edges from a single file."""
     relative_path = os.path.relpath(file_path, absolute_path_to_project)
@@ -378,7 +379,7 @@ async def extract_nodes_and_edges(
     # Try to parse the JSON response with retry mechanism
     try:
         # save nodes and edges to json
-        output_dir = os.path.join(config.OUTPUT_DIR, repo_name, *relative_path.split("/")[:-1])
+        output_dir = os.path.join(output_dir, repo_name, *relative_path.split("/")[:-1])
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, relative_path.split("/")[-1] + ".json")
 
@@ -433,7 +434,8 @@ if __name__ == "__main__":
     parser.add_argument("--file-path", required=True, type=str, help="The file path to parse")
     parser.add_argument("--absolute-path-to-project", required=True, type=str, help="The absolute path to the project")
     parser.add_argument("--repo-name", default="default", type=str, help="The name of the repository")
-
+    parser.add_argument("--output-dir", required=True, type=str, help="The output directory")
+    
     args = parser.parse_args()
 
-    asyncio.run(extract_nodes_and_edges(args.file_path, args.absolute_path_to_project, args.repo_name + f"-{config.LLM_MODEL.split('/')[-1]}")) 
+    asyncio.run(extract_nodes_and_edges(args.file_path, args.absolute_path_to_project, args.repo_name, args.output_dir)) 

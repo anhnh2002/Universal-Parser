@@ -10,23 +10,24 @@ import os
 from typing import Dict, List, Set, Optional, Any, Tuple
 from pathlib import Path
 
-from .graph_analyzer import GraphAnalyzer, GraphNode
+from .graph_analyzer import GraphAnalyzer
+from ..core.models import Node, Edge
 from ..utils.logger import logger
 
 
 class DefinitionAnalysis:
     """Container for definition analysis results."""
     
-    def __init__(self, node: GraphNode):
+    def __init__(self, node: Node):
         self.node = node
-        self.dependents: List[Tuple[GraphNode, List[str]]] = []  # (node, edge_types)
-        self.dependencies: List[Tuple[GraphNode, List[str]]] = []  # (node, edge_types)
+        self.dependents: List[Tuple[Node, List[str]]] = []  # (node, edge_types)
+        self.dependencies: List[Tuple[Node, List[str]]] = []  # (node, edge_types)
     
-    def add_dependent(self, node: GraphNode, edge_types: List[str]):
+    def add_dependent(self, node: Node, edge_types: List[str]):
         """Add a node that depends on this node with its edge types."""
         self.dependents.append((node, edge_types))
     
-    def add_dependency(self, node: GraphNode, edge_types: List[str]):
+    def add_dependency(self, node: Node, edge_types: List[str]):
         """Add a node that this node depends on with its edge types."""
         self.dependencies.append((node, edge_types))
     
@@ -123,7 +124,7 @@ class DefinitionAnalyzer:
         
         return analysis
     
-    def _find_node_by_name_and_file(self, relative_file_path: str, node_name: str) -> Optional[GraphNode]:
+    def _find_node_by_name_and_file(self, relative_file_path: str, node_name: str) -> Optional[Node]:
         """Find a node by its name within a specific file."""
         # Get all nodes in the file
         nodes_in_file = self.graph.get_nodes_in_file(relative_file_path)

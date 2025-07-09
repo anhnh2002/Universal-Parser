@@ -9,7 +9,8 @@ from typing import Dict, List, Set, Optional, Any, Tuple
 from pathlib import Path
 import os
 
-from .graph_analyzer import GraphAnalyzer, GraphNode
+from .graph_analyzer import GraphAnalyzer
+from ..core.models import Node
 from ..utils.logger import logger
 
 
@@ -18,11 +19,11 @@ class FileSummary:
     
     def __init__(self, file_path: str):
         self.file_path = file_path
-        self.nodes: List[GraphNode] = []
+        self.nodes: List[Node] = []
         self.total_lines: Optional[int] = None
         self.file_exists: bool = False
     
-    def add_node(self, node: GraphNode):
+    def add_node(self, node: Node):
         """Add a node to the summary."""
         self.nodes.append(node)
     

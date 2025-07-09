@@ -43,10 +43,10 @@ class RepositoryMetadata:
 class ChangeDetector:
     """Detects changes in repository files and manages parsing metadata."""
     
-    def __init__(self, repo_dir: str, repo_name: str):
+    def __init__(self, repo_dir: str, output_dir: str):
         self.repo_dir = Path(repo_dir).resolve()
-        self.repo_name = repo_name
-        self.output_dir = Path(config.OUTPUT_DIR) / repo_name
+        self.repo_name = self.repo_dir.name
+        self.output_dir = Path(output_dir) / self.repo_name
         self.metadata_file = self.output_dir / "parse_metadata.json"
         self.repo_metadata: Optional[RepositoryMetadata] = None
         
@@ -224,10 +224,10 @@ class ChangeDetector:
 class IncrementalAggregator:
     """Manages incremental updates to aggregated results."""
     
-    def __init__(self, repo_dir: str, repo_name: str):
+    def __init__(self, repo_dir: str, output_dir: str):
         self.repo_dir = Path(repo_dir).resolve()
-        self.repo_name = repo_name
-        self.output_dir = Path(config.OUTPUT_DIR) / repo_name
+        self.repo_name = self.repo_dir.name
+        self.output_dir = Path(output_dir) / self.repo_name
         self.aggregated_file = self.output_dir / "aggregated_results.json"
         
     def load_existing_aggregated_results(self) -> Optional[Dict[str, Any]]:

@@ -20,14 +20,15 @@ from ..utils.logger import logger
 class RepositoryParser:
     """Class to handle parsing of entire repositories."""
     
-    def __init__(self, repo_dir: str, repo_name: Optional[str] = None):
+    def __init__(self, repo_dir: str, output_dir: str):
         self.repo_dir = Path(repo_dir).resolve()
-        self.repo_name = repo_name or self.repo_dir.name
-        self.repo_name = self.repo_name + f"-{config.LLM_MODEL.split('/')[-1]}"
+        self.repo_name = self.repo_dir.name
         self.supported_files: List[Path] = []
         self.all_nodes: List[Node] = []
         self.all_edges: List[Edge] = []
         self.failed_files: List[str] = []
+
+        self.output_dir = Path(output_dir) / self.repo_name
         
         # Incremental update components
         self.change_detector = ChangeDetector(str(self.repo_dir), self.repo_name)
@@ -135,7 +136,8 @@ class RepositoryParser:
             nodes, edges = await extract_nodes_and_edges(
                 str(file_path), 
                 str(self.repo_dir), 
-                self.repo_name
+                self.repo_name,
+                str(self.output_dir)
             )
             
             if nodes is not None and edges is not None:
@@ -198,10 +200,10 @@ class RepositoryParser:
     
     def save_aggregated_results(self) -> str:
         """Save all nodes and edges to a single aggregated JSON file."""
-        output_dir = Path(config.OUTPUT_DIR) / self.repo_name
-        output_dir.mkdir(parents=True, exist_ok=True)
+
+        self.output_dir.mkdir(parents=True, exist_ok=True)
         
-        aggregated_file = output_dir / "aggregated_results.json"
+        aggregated_file = self.output_dir / "aggregated_results.json"
         
         result = {
             "repository": {
@@ -419,7 +421,8 @@ class RepositoryParser:
             nodes, edges = await extract_nodes_and_edges(
                 str(file_path), 
                 str(self.repo_dir), 
-                self.repo_name
+                self.repo_name,
+                str(self.output_dir)
             )
             
             if nodes is not None and edges is not None:
@@ -471,22 +474,22 @@ class RepositoryParser:
 
 
 async def parse_repository_main(
-    repo_dir: str, 
-    repo_name: Optional[str] = None, 
+    repo_dir: str,
+    output_dir: str,
     max_concurrent: int = 5
 ) -> str:
     """Main function to parse a repository."""
-    parser = RepositoryParser(repo_dir, repo_name)
+    parser = RepositoryParser(repo_dir, output_dir)
     return await parser.parse_repository(max_concurrent)
 
 
 async def parse_repository_incremental_main(
     repo_dir: str, 
-    repo_name: Optional[str] = None, 
+    output_dir: str,
     max_concurrent: int = 5
 ) -> str:
     """Main function to incrementally update repository parsing results."""
-    parser = RepositoryParser(repo_dir, repo_name)
+    parser = RepositoryParser(repo_dir, output_dir)
     return await parser.parse_repository_incremental(max_concurrent)
 
 
@@ -494,26 +497,16 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Parse an entire repository for nodes and edges")
     parser.add_argument("--repo-dir", required=True, type=str, 
                        help="The absolute path to the repository to parse")
-    parser.add_argument("--repo-name", type=str, default=None,
-                       help="Name for the repository (defaults to directory name)")
+    parser.add_argument("--output-dir", required=True, type=str, 
+                       help="The absolute path to the output directory")
     parser.add_argument("--max-concurrent", type=int, default=5,
                        help="Maximum number of files to process concurrently (default: 5)")
     
     args = parser.parse_args()
     
-    # Validate repository path
-    repo_dir = Path(args.repo_dir).resolve()
-    if not repo_dir.exists():
-        logger.error(f"Repository path does not exist: {repo_dir}")
-        exit(1)
-    
-    if not repo_dir.is_dir():
-        logger.error(f"Repository path is not a directory: {repo_dir}")
-        exit(1)
-    
     # Run the parser
     asyncio.run(parse_repository_main(
-        str(repo_dir), 
-        args.repo_name, 
+        args.repo_dir, 
+        args.output_dir, 
         args.max_concurrent
     )) 
