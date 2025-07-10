@@ -40,9 +40,9 @@ class Node(BaseModel):
     
     def __repr__(self, include_absolute_path: bool = False):
         if include_absolute_path:
-            return f"* Node: {self.file_level_id} in File: {self.absolute_path_to_implementation_file} (Line {self.start_line + 1} to {self.end_line + 1})"
+            return f"* Component: {self.file_level_id} in File: {self.absolute_path_to_implementation_file} (Line {self.start_line + 1} to {self.end_line + 1})"
         else:
-            return f"# {self.file_level_id} (Line {self.start_line + 1} to {self.end_line + 1})"
+            return f"# Component:{self.file_level_id} (Line {self.start_line + 1} to {self.end_line + 1})"
     
     def get_k_first_line(self, k: int = 1) -> str:
         """Get the first line of the code snippet."""
