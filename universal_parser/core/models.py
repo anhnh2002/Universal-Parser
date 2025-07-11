@@ -1,12 +1,12 @@
 from pydantic import BaseModel, model_validator
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Union
 import os
 
 class Node(BaseModel):
     id: str
     implementation_file: str
-    start_line: int | str
-    end_line: int | str
+    start_line: Union[int, str]
+    end_line: Union[int, str]
     type: str
     code_snippet: str = ""
     absolute_path_to_implementation_file: str = ""
