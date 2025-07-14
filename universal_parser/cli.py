@@ -235,8 +235,6 @@ def main() -> None:
     
     args = parser.parse_args()
 
-    set_log_level(logging.DEBUG)
-
     if args.command == 'file-summary':
         try:
             asyncio.run(run_file_summary(args))

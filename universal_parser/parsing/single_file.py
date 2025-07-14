@@ -6,11 +6,12 @@ from tree_sitter import Node as TreeSitterNode
 from tree_sitter_language_pack import get_parser
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type, before_sleep_log
 
-from ..core import config
 from .patterns import CODE_EXTENSIONS
 from ..utils.llm import get_llm_response
 from ..core.models import Node, Edge
 from ..utils.logger import logger
+from ..utils.utils import list_files_at_level_minus_one
+
 import traceback
 
 PROMPT_NORMALIZATION = """
@@ -56,92 +57,6 @@ IMPORTANT INSTRUCTIONS:
 - IGNORE global variables Nodes
 - Use the provided project structure to understand the context and relationships between files
 """
-
-# ------------------------------------------------------------
-# Generate File Tree
-# ------------------------------------------------------------
-
-def generate_file_tree(start_path: str, relative_file_path: str, max_depth: int = 3, max_files: int = 100) -> str:
-    """
-    Generate a file tree starting from the first folder of the relative path.
-    
-    Args:
-        start_path: The absolute path to the project root
-        relative_file_path: The relative path of the file being processed
-        max_depth: Maximum depth to traverse (default: 3)
-        max_files: Maximum number of files to include (default: 100)
-        
-    Returns:
-        A formatted file tree string
-    """
-    # Get relative directory path
-    relative_dir_path = os.path.join(start_path, os.path.dirname(relative_file_path))
-    
-    # Get the first folder from the relative path
-    path_parts = relative_file_path.split(os.sep)
-    if len(path_parts) > 1:
-        first_folder = path_parts[0]
-        tree_start_path = os.path.join(start_path, first_folder)
-    else:
-        # If the file is in the root, use the project root
-        tree_start_path = start_path
-        first_folder = "."
-    
-    if not os.path.exists(tree_start_path):
-        return f"{first_folder}/\n  (directory not found)"
-    
-    def _build_tree(path: str, prefix: str = "", depth: int = 0, file_count: list = [0]) -> str:
-        if depth >= max_depth or file_count[0] >= max_files:
-            return ""
-        
-        p_parts = path.split(os.sep)
-        r_parts = relative_dir_path.split(os.sep)
-        l_p = len(p_parts)
-        l_r = len(r_parts)
-        if l_p < l_r:
-            if p_parts[l_p-1] != r_parts[l_p-1]:
-                return f"{prefix}..."
-        else:
-            if p_parts[l_r-1] != r_parts[l_r-1]:
-                return f"{prefix}..."
-        
-        tree = ""
-        try:
-            items = sorted(os.listdir(path))
-            # Filter out common non-essential files/directories
-            items = [item for item in items if not item.startswith('.') and 
-                    item not in ['__pycache__', 'node_modules', '.git', '.vscode', 'venv', 'env', 'tests']]
-            
-            for i, item in enumerate(items):
-                if file_count[0] >= max_files:
-                    break
-                    
-                item_path = os.path.join(path, item)
-
-                is_last = i == len(items) - 1
-                current_prefix = "└── " if is_last else "├── "
-                
-                if os.path.isdir(item_path):
-                    tree += f"{prefix}{current_prefix}{item}/\n"
-                    next_prefix = prefix + ("    " if is_last else "│   ")
-                    tree += _build_tree(item_path, next_prefix, depth + 1, file_count)
-                else:
-                    tree += f"{prefix}{current_prefix}{item}\n"
-                    file_count[0] += 1
-                    
-        except PermissionError:
-            tree += f"{prefix}├── (permission denied)\n"
-        except Exception as e:
-            tree += f"{prefix}├── (error: {str(e)})\n"
-            
-        return tree
-    
-    if tree_start_path == start_path:
-        tree_header = "Project Root:\n"
-    else:
-        tree_header = f"{first_folder}/\n"
-    
-    return tree_header + _build_tree(tree_start_path)
 
 # ------------------------------------------------------------
 # Format AST
@@ -376,7 +291,7 @@ async def extract_nodes_and_edges(
 
     formatted_ast = f"File: {relative_path}\n" + formatted_ast
 
-    prompt = PROMPT_NORMALIZATION.format(formatted_ast=formatted_ast, file_tree=generate_file_tree(absolute_path_to_project, relative_path))
+    prompt = PROMPT_NORMALIZATION.format(formatted_ast=formatted_ast, file_tree=list_files_at_level_minus_one(absolute_path_to_project, relative_path))
 
     # Try to parse the JSON response with retry mechanism
     try:
