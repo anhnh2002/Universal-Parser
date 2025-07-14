@@ -5,7 +5,7 @@ This module provides functionality to generate file summaries showing only
 the first line of each node with elide messages for the remaining content.
 """
 
-from typing import Dict, List, Set, Optional, Any, Tuple
+from typing import List, Optional
 from pathlib import Path
 import os
 
@@ -64,7 +64,7 @@ class FileSummaryAnalyzer:
         # Normalize the file path
         normalized_path = self._normalize_file_path(file_path)
         
-        logger.info(f"Analyzing file summary for: {normalized_path}")
+        logger.debug(f"Analyzing file summary for: {normalized_path}")
         
         # Get nodes in the file
         nodes_in_file = self.graph.get_nodes_in_file(normalized_path)
@@ -91,7 +91,7 @@ class FileSummaryAnalyzer:
         for node in nodes_in_file:
             summary.add_node(node)
         
-        logger.info(f"Found {summary.get_total_nodes()} nodes in file: {normalized_path}")
+        logger.debug(f"Found {summary.get_total_nodes()} nodes in file: {normalized_path}")
         return summary
     
     def _normalize_file_path(self, file_path: str, repo_path: Optional[str] = None) -> str:

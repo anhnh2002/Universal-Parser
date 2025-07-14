@@ -5,9 +5,9 @@ import os
 class Node(BaseModel):
     id: str
     implementation_file: str
-    start_line: Union[int, str]
-    end_line: Union[int, str]
-    type: str
+    start_line: Optional[Union[int, str]]=None
+    end_line: Optional[Union[int, str]]=None
+    type: Optional[str]="unknown"
     code_snippet: str = ""
     absolute_path_to_implementation_file: str = ""
     file_level_id: str = ""
@@ -39,10 +39,11 @@ class Node(BaseModel):
         return node
     
     def __repr__(self, include_absolute_path: bool = False):
+        formared_lines = f" (Line {self.start_line + 1} to {self.end_line + 1})" if self.start_line and self.end_line else ""
         if include_absolute_path:
-            return f"* Component: {self.file_level_id} in File: {self.absolute_path_to_implementation_file} (Line {self.start_line + 1} to {self.end_line + 1})"
+            return f"* Component: `{self.file_level_id}` in File: `{self.absolute_path_to_implementation_file}`{formared_lines}"
         else:
-            return f"# Component:{self.file_level_id} (Line {self.start_line + 1} to {self.end_line + 1})"
+            return f"# Component: `{self.file_level_id}`{formared_lines}"
     
     def get_k_first_line(self, k: int = 1) -> str:
         """Get the first line of the code snippet."""

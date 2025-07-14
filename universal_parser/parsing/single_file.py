@@ -187,7 +187,7 @@ def recovery_invalid_file_path(absolute_path_to_project: str, file_path: str) ->
     if os.path.exists(absolute_file_path):
         return file_path
     else:
-        logger.warning(f"Found invalid file path: {file_path}")
+        logger.debug(f"Found invalid file path: {file_path}")
         # find available file paths matching the file_path in absolute_path_to_project directory, if there is only one, remove absolute_path_to_project and return it
         available_files = []
         for root, dirs, files in os.walk(absolute_path_to_project):
@@ -199,10 +199,10 @@ def recovery_invalid_file_path(absolute_path_to_project: str, file_path: str) ->
             file_path = available_files[0].replace(absolute_path_to_project, "")
             if file_path.startswith(os.sep):
                 file_path = file_path[1:]
-            logger.warning(f"Recovery to {file_path} instead")
+            logger.debug(f"Recovery to {file_path} instead")
             return file_path
         else:
-            logger.error(f"Found multiple or no available file paths {available_files} matching the file path, recovery failed!")
+            logger.debug(f"Found multiple or no available file paths {available_files} matching the file path, recovery failed!")
             return None
 
 # ------------------------------------------------------------
@@ -214,7 +214,7 @@ def recovery_invalid_file_path(absolute_path_to_project: str, file_path: str) ->
     wait=wait_exponential(multiplier=1, min=2, max=10),
     retry=retry_if_exception_type((json.JSONDecodeError, SyntaxError, KeyError, ValueError)),
     reraise=True,
-    before_sleep=before_sleep_log(logger, logger.info)
+    before_sleep=before_sleep_log(logger, logger.debug)
 )
 async def parse_llm_response_with_retry(prompt: str, file_path: str, absolute_path_to_project: str) -> tuple[list[Node], list[Edge]]:
     """
@@ -248,8 +248,8 @@ async def parse_llm_response_with_retry(prompt: str, file_path: str, absolute_pa
     json_end = llm_response.rfind('}') + 1
     
     if json_start == -1 or json_end == 0:
-        logger.error(f"No valid JSON found in LLM response for {file_path}")
-        logger.error(f"LLM Response that caused the error:\n{llm_response}")
+        logger.debug(f"No valid JSON found in LLM response for {file_path}")
+        logger.debug(f"LLM Response that caused the error:\n{llm_response}")
         raise ValueError(f"No valid JSON found in LLM response for {file_path}")
     
     json_str = llm_response[json_start:json_end]
@@ -263,14 +263,14 @@ async def parse_llm_response_with_retry(prompt: str, file_path: str, absolute_pa
         try:
             result = eval(json_str)
         except Exception as eval_error:
-            logger.error(f"Both JSON parsing and eval failed for {file_path}: {eval_error}")
-            logger.error(f"LLM Response that caused the error:\n{llm_response}")
+            logger.debug(f"Both JSON parsing and eval failed for {file_path}: {eval_error}")
+            logger.debug(f"LLM Response that caused the error:\n{llm_response}")
             raise
     
     # Validate required keys exist
     if "nodes" not in result or "edges" not in result:
-        logger.error(f"Missing required keys 'nodes' or 'edges' in LLM response for {file_path}")
-        logger.error(f"LLM Response that caused the error:\n{llm_response}")
+        logger.debug(f"Missing required keys 'nodes' or 'edges' in LLM response for {file_path}")
+        logger.debug(f"LLM Response that caused the error:\n{llm_response}")
         raise KeyError(f"Missing required keys 'nodes' or 'edges' in LLM response for {file_path}")
     
     # Create Node and Edge objects
@@ -291,7 +291,7 @@ async def parse_llm_response_with_retry(prompt: str, file_path: str, absolute_pa
             else:
                 pass
         except Exception as e:
-            logger.error(f"Error creating Node object for {node}: {e}")
+            logger.debug(f"Error creating Node object for {node}: {e}")
             continue
     edges = []
     for edge in result["edges"]:
@@ -304,7 +304,7 @@ async def parse_llm_response_with_retry(prompt: str, file_path: str, absolute_pa
             else:
                 pass
         except Exception as e:
-            logger.error(f"Error creating Edge object for {edge}: {e}")
+            logger.debug(f"Error creating Edge object for {edge}: {e}")
             continue
     
     return nodes, edges
@@ -335,7 +335,9 @@ def extract_code_snippet(file_path: str, start_line: int, end_line: int, absolut
             return ""
         
         with open(absolute_file_path, 'r', encoding='utf-8') as file:
-            lines = file.readlines()
+            file_content = file.read()
+
+        lines = file_content.split("\n")
         
         # Convert to 0-indexed and ensure valid range
         start_idx = max(0, start_line)
@@ -347,10 +349,10 @@ def extract_code_snippet(file_path: str, start_line: int, end_line: int, absolut
         
         # Extract and return the snippet
         snippet_lines = lines[start_idx:end_idx]
-        return ''.join(snippet_lines).rstrip()
+        return '\n'.join(snippet_lines)
         
     except Exception as e:
-        logger.error(f"Error extracting code snippet from {file_path} (lines {start_line}-{end_line}): {e}")
+        logger.debug(f"Error extracting code snippet from {file_path} (lines {start_line}-{end_line}): {e}")
         return ""
 
 async def extract_nodes_and_edges(
@@ -365,7 +367,7 @@ async def extract_nodes_and_edges(
     try:
         formatted_ast = parse_ast(file_path)
     except Exception as e:
-        logger.error(f"Error parsing AST for {file_path}: {e}")
+        logger.debug(f"Error parsing AST for {file_path}: {e}")
         logger.warning(f"Fallback to using raw file content for {file_path}")
         with open(file_path, "r") as file:
             formatted_ast = file.read()
@@ -383,35 +385,35 @@ async def extract_nodes_and_edges(
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, relative_path.split("/")[-1] + ".json")
 
-        if os.path.exists(output_path):
-            logger.debug(f"Skipping {file_path} because it already exists")
-            # read nodes and edges from json
-            with open(output_path, "r") as file:
-                result = json.load(file)
-                nodes = []
-                for node_data in result["nodes"]:
-                    # Handle backward compatibility - add code_snippet if missing
-                    if 'code_snippet' not in node_data:
-                        node_data['code_snippet'] = ""
+        # if os.path.exists(output_path):
+        #     logger.debug(f"Skipping {file_path} because it already exists")
+        #     # read nodes and edges from json
+        #     with open(output_path, "r") as file:
+        #         result = json.load(file)
+        #         nodes = []
+        #         for node_data in result["nodes"]:
+        #             # Handle backward compatibility - add code_snippet if missing
+        #             if 'code_snippet' not in node_data:
+        #                 node_data['code_snippet'] = ""
                     
-                    _node = Node(**node_data)
+        #             _node = Node(**node_data)
                     
-                    # If code_snippet is empty, try to extract it
-                    if not _node.code_snippet and _node.implementation_file:
-                        _node.code_snippet = extract_code_snippet(
-                            _node.implementation_file,
-                            _node.start_line,
-                            _node.end_line,
-                            absolute_path_to_project
-                        )
+        #             # If code_snippet is empty, try to extract it
+        #             if not _node.code_snippet and _node.implementation_file:
+        #                 _node.code_snippet = extract_code_snippet(
+        #                     _node.implementation_file,
+        #                     _node.start_line,
+        #                     _node.end_line,
+        #                     absolute_path_to_project
+        #                 )
                     
-                    nodes.append(_node)
+        #             nodes.append(_node)
                 
-                edges = [Edge(**edge) for edge in result["edges"]]
+        #         edges = [Edge(**edge) for edge in result["edges"]]
 
-            await asyncio.sleep(1)
+        #     await asyncio.sleep(1)
 
-            return nodes, edges
+        #     return nodes, edges
 
         nodes, edges = await parse_llm_response_with_retry(prompt, file_path, absolute_path_to_project)
 
@@ -423,9 +425,9 @@ async def extract_nodes_and_edges(
         return nodes, edges
         
     except Exception as e:
-        logger.error(f"Error parsing LLM response for {file_path} after all retries: {e}")
-        logger.error(traceback.format_exc())
-        logger.error(f"This indicates a persistent issue with the LLM response format or content")
+        logger.debug(f"Error parsing LLM response for {file_path} after all retries: {e}")
+        logger.debug(traceback.format_exc())
+        logger.debug(f"This indicates a persistent issue with the LLM response format or content")
         return None, None
 
 

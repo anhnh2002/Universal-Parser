@@ -15,8 +15,8 @@ def main(args):
     })
 
     result = response.json()
-    logger.info(f"GitGrobe found {result['data']['summary']['total_functions']} functions")
-    logger.info(f"GitGrobe found {result['data']['summary']['languages_analyzed']} languages")
+    logger.debug(f"GitGrobe found {result['data']['summary']['total_functions']} functions")
+    logger.debug(f"GitGrobe found {result['data']['summary']['languages_analyzed']} languages")
 
     # Save the result to a file
     output_dir = f"./data/gitgrobe-outputs/{args.repo_name}"

@@ -1,18 +1,15 @@
-import argparse
 import asyncio
 import os
-import json
 from pathlib import Path
 from typing import List, Tuple, Optional
 import time
 from tqdm import tqdm
 import fnmatch
-import sys
+import logging
 
-from ..core import config
 from .single_file import extract_nodes_and_edges
 from ..core.models import Node, Edge
-from .patterns import DEFAULT_IGNORE_PATTERNS, DEFAULT_INCLUDE_PATTERNS, CODE_EXTENSIONS
+from .patterns import DEFAULT_IGNORE_PATTERNS, DEFAULT_INCLUDE_PATTERNS
 from .incremental import ChangeDetector, IncrementalAggregator
 from ..utils.logger import logger
 
@@ -31,12 +28,12 @@ class RepositoryParser:
         self.output_dir = Path(output_dir) / self.repo_name
         
         # Incremental update components
-        self.change_detector = ChangeDetector(str(self.repo_dir), self.repo_name)
-        self.incremental_aggregator = IncrementalAggregator(str(self.repo_dir), self.repo_name)
+        self.change_detector = ChangeDetector(str(self.repo_dir), output_dir)
+        self.incremental_aggregator = IncrementalAggregator(str(self.repo_dir), output_dir)
         
     def discover_files(self) -> List[Path]:
         """Discover all supported files in the repository."""
-        logger.info(f"Discovering files in repository: {self.repo_dir}")
+        logger.debug(f"Discovering files in repository: {self.repo_dir}")
         
         supported_files: List[Path] = []
         total_files = 0
@@ -71,9 +68,8 @@ class RepositoryParser:
                 if self._should_include_file(relative_path, file):
                     supported_files.append(file_path)
 
-        logger.info(f"Found {len(supported_files)} supported files out of {total_files} total files")
+        logger.debug(f"Found {len(supported_files)} supported files out of {total_files} total files")
 
-        self.supported_files = supported_files
         return supported_files
     
     def _should_exclude_path(self, path: str, filename: str) -> bool:
@@ -128,166 +124,19 @@ class RepositoryParser:
                 return True
         return False
 
-    
-    async def parse_single_file_wrapper(self, file_path: Path) -> Tuple[Optional[List[Node]], Optional[List[Edge]], str]:
-        """Wrapper to parse a single file and handle errors."""
-        try:
-            logger.debug(f"Processing file: {file_path}")
-            nodes, edges = await extract_nodes_and_edges(
-                str(file_path), 
-                str(self.repo_dir), 
-                self.repo_name,
-                str(self.output_dir)
-            )
-            
-            if nodes is not None and edges is not None:
-                logger.debug(f"Successfully processed {file_path}: {len(nodes)} nodes, {len(edges)} edges")
-                return nodes, edges, str(file_path)
-            else:
-                logger.warning(f"Failed to process {file_path}")
-                return None, None, str(file_path)
-                
-        except Exception as e:
-            logger.error(f"Error processing {file_path}: {e}")
-            return None, None, str(file_path)
-    
-    async def parse_files_concurrent(self, max_concurrent: int = 5) -> None:
-        """Parse all discovered files with controlled concurrency."""
-        if not self.supported_files:
-            logger.warning("No supported files discovered. Run discover_files() first.")
-            return
-            
-        logger.info(f"Starting to parse {len(self.supported_files)} files with max concurrency: {max_concurrent}")
-        start_time = time.time()
-        
-        semaphore = asyncio.Semaphore(max_concurrent)
-        
-        async def parse_with_semaphore(file_path):
-            async with semaphore:
-                return await self.parse_single_file_wrapper(file_path)
-        
-        # Create tasks for all files
-        tasks = [parse_with_semaphore(file_path) for file_path in self.supported_files]
-        
-        # Process files and collect results
-        successful_files = 0
-        failed_files = 0
-        
-        for i, task in tqdm(enumerate(asyncio.as_completed(tasks)), total=len(tasks)):
-
-            nodes, edges, file_path = await task
-            
-            if nodes is not None and edges is not None:
-                self.all_nodes.extend(nodes)
-                self.all_edges.extend(edges)
-                successful_files += 1
-            else:
-                self.failed_files.append(file_path)
-                failed_files += 1
-            
-            # Progress reporting
-            if (i + 1) % 10 == 0 or i + 1 == len(tasks):
-                elapsed_time = time.time() - start_time
-                logger.info(f"Progress: {i + 1}/{len(tasks)} files processed. "
-                          f"Success: {successful_files}, Failed: {failed_files}. "
-                          f"Elapsed: {elapsed_time:.2f}s")
-        
-        total_time = time.time() - start_time
-        logger.info(f"Completed parsing repository in {total_time:.2f}s. "
-                   f"Total files: {len(self.supported_files)}, "
-                   f"Successful: {successful_files}, "
-                   f"Failed: {failed_files}")
-    
-    def save_aggregated_results(self) -> str:
-        """Save all nodes and edges to a single aggregated JSON file."""
-
-        self.output_dir.mkdir(parents=True, exist_ok=True)
-        
-        aggregated_file = self.output_dir / "aggregated_results.json"
-        
-        result = {
-            "repository": {
-                "name": self.repo_name,
-                "path": str(self.repo_dir),
-                "total_files_processed": len(self.supported_files) - len(self.failed_files),
-                "total_files_failed": len(self.failed_files),
-                "failed_files": self.failed_files
-            },
-            "nodes": [node.model_dump() for node in self.all_nodes],
-            "edges": [edge.model_dump() for edge in self.all_edges],
-            "statistics": {
-                "total_nodes": len(self.all_nodes),
-                "total_edges": len(self.all_edges),
-                "nodes_by_type": self._count_by_type(self.all_nodes, 'type'),
-                "edges_by_type": self._count_by_type(self.all_edges, 'type'),
-                "files_by_language": self._count_files_by_language()
-            }
-        }
-        
-        with open(aggregated_file, 'w') as f:
-            json.dump(result, f, indent=2)
-        
-        logger.info(f"Aggregated results saved to: {aggregated_file}")
-        logger.info(f"Total nodes: {len(self.all_nodes)}, Total edges: {len(self.all_edges)}")
-        
-        return str(aggregated_file)
-    
-    def _count_by_type(self, items: List, type_field: str) -> dict:
-        """Count items by their type field."""
-        counts = {}
-        for item in items:
-            item_type = getattr(item, type_field, 'unknown')
-            counts[item_type] = counts.get(item_type, 0) + 1
-        return counts
-    
-    def _count_files_by_language(self) -> dict:
-        """Count processed files by programming language."""
-        counts = {}
-        for file_path in self.supported_files:
-            if str(file_path) not in self.failed_files:
-                extension = Path(file_path).suffix.lower()
-                language = CODE_EXTENSIONS.get(extension, 'unknown')
-                counts[language] = counts.get(language, 0) + 1
-        return counts
-    
-    async def parse_repository(self, max_concurrent: int = 5) -> str:
-        """Main method to parse the entire repository."""
-        logger.info(f"Starting repository parsing for: {self.repo_dir}")
-        
-        # Load metadata for tracking
-        self.change_detector.load_metadata()
-        
-        # Discover files
-        self.discover_files()
-        
-        if not self.supported_files:
-            logger.warning("No supported files found in repository")
-            return ""
-        
-        # Parse files
-        await self.parse_files_concurrent(max_concurrent)
-        
-        # Save results
-        output_file = self.save_aggregated_results()
-        
-        # Mark full parse complete and save metadata
-        self.mark_full_parse_complete()
-        
-        logger.info(f"Repository parsing completed. Results saved to: {output_file}")
-        return output_file
-
     async def parse_repository_incremental(
-        self, 
+        self,
+        file_paths: List[Path]=[],
         max_concurrent: int = 5
     ) -> str:
         """Parse repository incrementally, only processing changed files."""
-        logger.info(f"Starting incremental repository parsing for: {self.repo_dir}")
+        logger.debug(f"Starting incremental repository parsing for: {self.repo_dir}")
         
         # Load existing metadata
         self.change_detector.load_metadata()
         
         # Discover all files
-        self.discover_files()
+        self.supported_files = file_paths or self.discover_files()
         
         if not self.supported_files:
             logger.warning("No supported files found in repository")
@@ -300,7 +149,7 @@ class RepositoryParser:
         changed_files = self.change_detector.get_changed_files(self.supported_files)
         
         if not changed_files:
-            logger.info("No changed files detected. Repository is up to date.")
+            logger.debug("No changed files detected. Repository is up to date.")
             # Still update metadata file
             self.change_detector.save_metadata()
             
@@ -312,7 +161,7 @@ class RepositoryParser:
                 logger.warning("No existing aggregated results found")
                 return ""
         
-        logger.info(f"Processing {len(changed_files)} changed files out of {len(self.supported_files)} total files")
+        logger.debug(f"Processing {len(changed_files)} changed files out of {len(self.supported_files)} total files")
         
         # Load existing aggregated results
         aggregated_data = self.incremental_aggregator.load_existing_aggregated_results()
@@ -349,8 +198,8 @@ class RepositoryParser:
         # Save metadata
         self.change_detector.save_metadata()
         
-        logger.info(f"Incremental repository parsing completed. Results saved to: {output_file}")
-        logger.info(f"Updated {len(changed_files)} files. Total: {aggregated_data['statistics']['total_nodes']} nodes, {aggregated_data['statistics']['total_edges']} edges")
+        logger.debug(f"Incremental repository parsing completed. Results saved to: {output_file}")
+        logger.debug(f"Updated {len(changed_files)} files. Total: {aggregated_data['statistics']['total_nodes']} nodes, {aggregated_data['statistics']['total_edges']} edges")
         
         return output_file
     
@@ -361,10 +210,10 @@ class RepositoryParser:
     ) -> None:
         """Parse a specific list of files with controlled concurrency for incremental updates."""
         if not files_to_parse:
-            logger.info("No files to parse for incremental update")
+            logger.debug("No files to parse for incremental update")
             return
             
-        logger.info(f"Starting to parse {len(files_to_parse)} files with max concurrency: {max_concurrent}")
+        logger.debug(f"Starting to parse {len(files_to_parse)} files with max concurrency: {max_concurrent}")
         start_time = time.time()
         
         semaphore = asyncio.Semaphore(max_concurrent)
@@ -379,8 +228,12 @@ class RepositoryParser:
         # Process files and collect results
         successful_files = 0
         failed_files = 0
+
+        progress_bar =  tqdm(enumerate(asyncio.as_completed(tasks)), total=len(tasks))\
+                        if logger.level == logging.DEBUG\
+                        else enumerate(asyncio.as_completed(tasks))
         
-        for i, task in tqdm(enumerate(asyncio.as_completed(tasks)), total=len(tasks)):
+        for i, task in progress_bar:
             nodes, edges, file_path = await task
             
             if nodes is not None and edges is not None:
@@ -394,12 +247,12 @@ class RepositoryParser:
             # Progress reporting
             if (i + 1) % 10 == 0 or i + 1 == len(tasks):
                 elapsed_time = time.time() - start_time
-                logger.info(f"Progress: {i + 1}/{len(tasks)} files processed. "
+                logger.debug(f"Progress: {i + 1}/{len(tasks)} files processed. "
                           f"Success: {successful_files}, Failed: {failed_files}. "
                           f"Elapsed: {elapsed_time:.2f}s")
         
         total_time = time.time() - start_time
-        logger.info(f"Completed incremental parsing in {total_time:.2f}s. "
+        logger.debug(f"Completed incremental parsing in {total_time:.2f}s. "
                    f"Files: {len(files_to_parse)}, "
                    f"Successful: {successful_files}, "
                    f"Failed: {failed_files}")
@@ -449,7 +302,7 @@ class RepositoryParser:
                 return None, None, str(file_path)
                 
         except Exception as e:
-            logger.error(f"Error processing {file_path}: {e}")
+            logger.debug(f"Error processing {file_path}: {e}")
             
             # Update metadata for failed parse
             self.change_detector.update_file_metadata(
@@ -459,54 +312,15 @@ class RepositoryParser:
             )
             
             return None, None, str(file_path)
-    
-    def mark_full_parse_complete(self) -> None:
-        """Mark that a full repository parse has been completed."""
-        # Update metadata for all successfully parsed files
-        for file_path in self.supported_files:
-            if str(file_path) not in self.failed_files:
-                self.change_detector.update_file_metadata(file_path, parse_successful=True)
-        
-        # Mark full parse completion
-        self.change_detector.mark_full_parse_complete()
-        self.change_detector.save_metadata()
-        logger.info("Marked full repository parse as complete in metadata")
-
-
-async def parse_repository_main(
-    repo_dir: str,
-    output_dir: str,
-    max_concurrent: int = 5
-) -> str:
-    """Main function to parse a repository."""
-    parser = RepositoryParser(repo_dir, output_dir)
-    return await parser.parse_repository(max_concurrent)
 
 
 async def parse_repository_incremental_main(
     repo_dir: str, 
     output_dir: str,
+    file_paths: List[str]=[],# if provided, only parse these files
     max_concurrent: int = 5
 ) -> str:
     """Main function to incrementally update repository parsing results."""
     parser = RepositoryParser(repo_dir, output_dir)
-    return await parser.parse_repository_incremental(max_concurrent)
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Parse an entire repository for nodes and edges")
-    parser.add_argument("--repo-dir", required=True, type=str, 
-                       help="The absolute path to the repository to parse")
-    parser.add_argument("--output-dir", required=True, type=str, 
-                       help="The absolute path to the output directory")
-    parser.add_argument("--max-concurrent", type=int, default=5,
-                       help="Maximum number of files to process concurrently (default: 5)")
-    
-    args = parser.parse_args()
-    
-    # Run the parser
-    asyncio.run(parse_repository_main(
-        args.repo_dir, 
-        args.output_dir, 
-        args.max_concurrent
-    )) 
+    file_paths = [Path(path) for path in file_paths]
+    return await parser.parse_repository_incremental(file_paths=file_paths, max_concurrent=max_concurrent)

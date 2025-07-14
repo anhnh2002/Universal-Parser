@@ -18,7 +18,7 @@ from ..core.models import Node, Edge
 class GraphAnalyzer:
     """Main analyzer for processing code graphs from aggregated results."""
     
-    def __init__(self, aggregated_results_path: str):
+    def __init__(self, aggregated_results_path: str, on_demand: bool = False):
         """
         Initialize the graph analyzer.
         
@@ -34,20 +34,20 @@ class GraphAnalyzer:
         self.files_to_nodes: Dict[str, List[Node]] = defaultdict(list)
         
         self._load_data()
-        self._build_graph()
+        self._build_graph(on_demand)
     
     def _load_data(self):
         """Load the aggregated results from JSON file."""
         try:
             with open(self.aggregated_results_path, 'r', encoding='utf-8') as f:
                 self.data = json.load(f)
-            logger.info(f"Loaded aggregated results from {self.aggregated_results_path}")
+            logger.debug(f"Loaded aggregated results from {self.aggregated_results_path}")
         except FileNotFoundError:
             raise FileNotFoundError(f"Aggregated results file not found: {self.aggregated_results_path}")
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid JSON in aggregated results file: {e}")
     
-    def _build_graph(self):
+    def _build_graph(self, on_demand: bool = False):
         """Build the graph structure from loaded data."""
         if not self.data:
             raise ValueError("No data loaded")
@@ -64,6 +64,13 @@ class GraphAnalyzer:
         for edge_data in self.data.get("edges", []):
             edge = Edge.from_dict(edge_data)
             self.edges.append(edge)
+
+            # if on_demand, add nodes if they are not in the graph
+            if on_demand:
+                if edge.subject_id not in self.nodes:
+                    self.nodes[edge.subject_id] = Node.from_dict({"id": edge.subject_id, "implementation_file": edge.subject_implementation_file}, absolute_path_to_repo)
+                if edge.object_id not in self.nodes:
+                    self.nodes[edge.object_id] = Node.from_dict({"id": edge.object_id, "implementation_file": edge.object_implementation_file}, absolute_path_to_repo)
             
             # Build adjacency lists for graph traversal
             self.adjacency_list[edge.subject_id].add(edge.object_id)
@@ -73,7 +80,7 @@ class GraphAnalyzer:
         for file_path in self.files_to_nodes:
             self.files_to_nodes[file_path].sort(key=lambda n: n.start_line)
         
-        logger.info(f"Built graph with {len(self.nodes)} nodes and {len(self.edges)} edges")
+        logger.debug(f"Built graph with {len(self.nodes)} nodes and {len(self.edges)} edges")
     
     def get_node(self, node_id: str) -> Optional[Node]:
         """Get a node by its ID."""

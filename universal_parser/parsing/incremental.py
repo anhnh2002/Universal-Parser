@@ -5,16 +5,13 @@ This module provides infrastructure for detecting file changes and updating
 parsed results incrementally without re-parsing the entire repository.
 """
 
-import os
 import json
 import time
-import hashlib
 from pathlib import Path
-from typing import Dict, List, Set, Optional, Tuple, Any
+from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, asdict
-from datetime import datetime
 
-from ..core import config
+from .patterns import CODE_EXTENSIONS
 from ..core.models import Node, Edge
 from ..utils.logger import logger
 
@@ -69,13 +66,13 @@ class ChangeDetector:
                     total_files_tracked=data.get('total_files_tracked', 0),
                     files=files
                 )
-                logger.info(f"Loaded metadata for {len(files)} tracked files")
+                logger.debug(f"Loaded metadata for {len(files)} tracked files")
                 
             except (json.JSONDecodeError, KeyError, TypeError) as e:
                 logger.warning(f"Failed to load metadata: {e}. Creating new metadata.")
                 self.repo_metadata = self._create_new_metadata()
         else:
-            logger.info("No existing metadata found. Creating new metadata.")
+            logger.debug("No existing metadata found. Creating new metadata.")
             self.repo_metadata = self._create_new_metadata()
             
         return self.repo_metadata
@@ -109,12 +106,10 @@ class ChangeDetector:
         with open(self.metadata_file, 'w') as f:
             json.dump(data, f, indent=2)
         
-        logger.debug(f"Saved metadata for {len(self.repo_metadata.files)} files")
+        logger.debug(f"Saved metadata in {self.metadata_file}")
     
     def is_file_changed(self, file_path: Path) -> bool:
         """Check if a file has changed since last parse."""
-        if not self.repo_metadata:
-            return True
             
         try:
             relative_path = str(file_path.relative_to(self.repo_dir))
@@ -132,6 +127,11 @@ class ChangeDetector:
             return True
             
         stat = file_path.stat()
+
+        print(f"File path: {file_path}")
+        print(f"Relative path: {relative_path}")
+        print(f"File metadata: {file_metadata}")
+        print(f"File stat: {stat}")
         
         # Check modification time
         if stat.st_mtime > file_metadata.last_modified:
@@ -188,7 +188,7 @@ class ChangeDetector:
             if self.is_file_changed(file_path):
                 changed_files.append(file_path)
                 
-        logger.info(f"Found {len(changed_files)} changed files out of {len(file_paths)} total files")
+        logger.debug(f"Found {len(changed_files)} changed files out of {len(file_paths)} total files")
         return changed_files
     
     def mark_full_parse_complete(self) -> None:
@@ -216,7 +216,7 @@ class ChangeDetector:
             logger.debug(f"Removed metadata for orphaned file: {orphaned_path}")
             
         if orphaned_paths:
-            logger.info(f"Cleaned up {len(orphaned_paths)} orphaned file metadata entries")
+            logger.debug(f"Cleaned up {len(orphaned_paths)} orphaned file metadata entries")
             
         self.repo_metadata.total_files_tracked = len(self.repo_metadata.files)
 
@@ -233,16 +233,21 @@ class IncrementalAggregator:
     def load_existing_aggregated_results(self) -> Optional[Dict[str, Any]]:
         """Load existing aggregated results."""
         if not self.aggregated_file.exists():
-            logger.info("No existing aggregated results found")
-            return None
+            logger.debug("No existing aggregated results found")
+            return {
+                "repository": {},
+                "nodes": [],
+                "edges": [],
+                "statistics": {}
+            }
             
         try:
             with open(self.aggregated_file, 'r') as f:
                 data = json.load(f)
-            logger.info(f"Loaded existing aggregated results with {len(data.get('nodes', []))} nodes and {len(data.get('edges', []))} edges")
+            logger.debug(f"Loaded existing aggregated results with {len(data.get('nodes', []))} nodes and {len(data.get('edges', []))} edges")
             return data
         except (json.JSONDecodeError, IOError) as e:
-            logger.error(f"Failed to load existing aggregated results: {e}")
+            logger.debug(f"Failed to load existing aggregated results: {e}")
             return None
     
     def get_file_output_path(self, file_path: Path) -> Path:
@@ -294,7 +299,7 @@ class IncrementalAggregator:
         removed_edges = original_edges - len(filtered_edges)
         
         if removed_nodes > 0 or removed_edges > 0:
-            logger.info(f"Removed {removed_nodes} nodes and {removed_edges} edges from {len(file_paths)} changed files")
+            logger.debug(f"Removed {removed_nodes} nodes and {removed_edges} edges from {len(file_paths)} changed files")
         
         return aggregated_data
     
@@ -330,7 +335,7 @@ class IncrementalAggregator:
         aggregated_data['nodes'] = existing_nodes
         aggregated_data['edges'] = existing_edges
         
-        logger.info(f"Added {len(new_nodes)} nodes and {len(new_edges)} edges to aggregated results")
+        logger.debug(f"Added {len(new_nodes)} nodes and {len(new_edges)} edges to aggregated results")
         
         return aggregated_data
     
@@ -360,13 +365,7 @@ class IncrementalAggregator:
         
         for file_path in implementation_files:
             extension = Path(file_path).suffix.lower()
-            # Simple mapping - could be enhanced
-            language_map = {
-                '.py': 'python', '.js': 'javascript', '.ts': 'typescript',
-                '.java': 'java', '.cpp': 'cpp', '.c': 'c', '.go': 'go',
-                '.rs': 'rust', '.php': 'php', '.rb': 'ruby'
-            }
-            language = language_map.get(extension, 'unknown')
+            language = CODE_EXTENSIONS.get(extension, 'unknown')
             files_by_language[language] = files_by_language.get(language, 0) + 1
         
         aggregated_data['statistics'] = {
@@ -387,6 +386,6 @@ class IncrementalAggregator:
             json.dump(aggregated_data, f, indent=2)
         
         stats = aggregated_data.get('statistics', {})
-        logger.info(f"Saved aggregated results: {stats.get('total_nodes', 0)} nodes, {stats.get('total_edges', 0)} edges")
+        logger.debug(f"Saved aggregated results: {stats.get('total_nodes', 0)} nodes, {stats.get('total_edges', 0)} edges")
         
         return str(self.aggregated_file) 

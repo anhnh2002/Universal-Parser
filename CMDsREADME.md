@@ -19,11 +19,15 @@ python load_to_neo4j.py --file outputs/DocAgent-claude-sonnet-4-20250514/aggrega
 
 #CLI
 ```bash
-universal-parse parse --repo-dir /Users/anhnh/Documents/vscode/deepwiki-agent-universal-parser/data/repos/titan-sight --max-concurrent 5 --output-dir ./volume
+universal-parse update --repo-dir /Users/anhnh/Documents/vscode/deepwiki-agent-universal-parser/data/repos/titan-sight --max-concurrent 5 --output-dir ./volume
 
-universal-parse get-definition --aggregated-results volume/titan-sight/aggregated_results.json --file-path /Users/anhnh/Documents/vscode/deepwiki-agent-universal-parser/data/repos/titan-sight/src/search/providers/base.py --node-name SearchProvider
+universal-parse get-definition --repo-dir /Users/anhnh/Documents/vscode/deepwiki-agent-universal-parser/data/repos/titan-sight --output-dir ./volume --file-path /Users/anhnh/Documents/vscode/deepwiki-agent-universal-parser/data/repos/titan-sight/src/search/providers/base.py --node-name SearchProvider
 
-universal-parse file-summary --aggregated-results volume/titan-sight/aggregated_results.json --file-path /Users/anhnh/Documents/vscode/deepwiki-agent-universal-parser/data/repos/titan-sight/src/search/providers/base.py
+universal-parse file-summary --repo-dir /Users/anhnh/Documents/vscode/deepwiki-agent-universal-parser/data/repos/titan-sight --output-dir ./volume --file-path /Users/anhnh/Documents/vscode/deepwiki-agent-universal-parser/data/repos/titan-sight/src/search/providers/base.py
+
+universal-parse file-summary --repo-dir /Users/anhnh/Documents/vscode/deepwiki-agent-universal-parser/data/repos/DocAgent --file-path src/dependency_analyzer/ast_parser.py
+
+universal-parse get-definition --repo-dir /Users/anhnh/Documents/vscode/deepwiki-agent-universal-parser/data/repos/DocAgent --file-path /Users/anhnh/Documents/vscode/deepwiki-agent-universal-parser/data/repos/DocAgent/src/dependency_analyzer/ast_parser.py --node-name DependencyParser
 
 ```
 

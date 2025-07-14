@@ -32,20 +32,20 @@ class Neo4jService:
             with self.driver.session(database=config.NEO4J_DATABASE) as session:
                 session.run("RETURN 1")
             
-            logger.info(f"Successfully connected to Neo4j at {config.NEO4J_URI}")
+            logger.debug(f"Successfully connected to Neo4j at {config.NEO4J_URI}")
             
         except (ServiceUnavailable, AuthError) as e:
-            logger.error(f"Failed to connect to Neo4j: {e}")
+            logger.debug(f"Failed to connect to Neo4j: {e}")
             raise
         except Exception as e:
-            logger.error(f"Unexpected error connecting to Neo4j: {e}")
+            logger.debug(f"Unexpected error connecting to Neo4j: {e}")
             raise
     
     def close(self):
         """Close Neo4j connection"""
         if self.driver:
             self.driver.close()
-            logger.info("Neo4j connection closed")
+            logger.debug("Neo4j connection closed")
     
     def clear_repository_data(self, repo_name: str):
         """Clear existing data for a specific repository"""
@@ -64,7 +64,7 @@ class Neo4jService:
                 DELETE n
             """, repo_name=repo_name)
             
-            logger.info(f"Cleared existing data for repository: {repo_name}")
+            logger.debug(f"Cleared existing data for repository: {repo_name}")
     
     def create_constraints(self):
         """Create necessary constraints and indexes"""
@@ -92,7 +92,7 @@ class Neo4jService:
                     FOR (n:CodeNode) ON (n.implementation_file)
                 """)
                 
-                logger.info("Created Neo4j constraints and indexes")
+                logger.debug("Created Neo4j constraints and indexes")
                 
             except Exception as e:
                 logger.warning(f"Some constraints/indexes might already exist: {e}")
@@ -106,7 +106,7 @@ class Neo4jService:
             repo_name: Name of the repository
             clear_existing: Whether to clear existing data for this repository
         """
-        logger.info(f"Loading aggregated results from {file_path} for repository {repo_name}")
+        logger.debug(f"Loading aggregated results from {file_path} for repository {repo_name}")
         
         # Validate file exists
         if not os.path.exists(file_path):
@@ -137,7 +137,7 @@ class Neo4jService:
         # Store repository metadata
         self._create_repository_metadata(data['repository'], repo_name)
         
-        logger.info(f"Successfully loaded {nodes_created} nodes and {edges_created} relationships for repository {repo_name}")
+        logger.debug(f"Successfully loaded {nodes_created} nodes and {edges_created} relationships for repository {repo_name}")
         
         return {
             "nodes_created": nodes_created,
@@ -147,7 +147,7 @@ class Neo4jService:
     
     def _create_nodes(self, nodes_data: List[Dict], repo_name: str) -> int:
         """Create nodes in Neo4j"""
-        logger.info(f"Creating {len(nodes_data)} nodes for repository {repo_name}")
+        logger.debug(f"Creating {len(nodes_data)} nodes for repository {repo_name}")
         
         with self.driver.session(database=config.NEO4J_DATABASE) as session:
             # Use UNWIND for batch processing
@@ -172,7 +172,7 @@ class Neo4jService:
     
     def _create_relationships(self, edges_data: List[Dict], repo_name: str) -> int:
         """Create relationships in Neo4j"""
-        logger.info(f"Creating {len(edges_data)} relationships for repository {repo_name}")
+        logger.debug(f"Creating {len(edges_data)} relationships for repository {repo_name}")
         
         with self.driver.session(database=config.NEO4J_DATABASE) as session:
             query = """
@@ -331,5 +331,5 @@ if __name__ == "__main__":
         )
         print(f"Successfully loaded data: {result}")
     except Exception as e:
-        logger.error(f"Failed to load data: {e}")
+        logger.debug(f"Failed to load data: {e}")
         exit(1) 

@@ -9,12 +9,12 @@ __version__ = "0.1.0"
 __author__ = "Your Name"
 __email__ = "your.email@example.com"
 
-from .parsing.repository import RepositoryParser, parse_repository_main
+from .parsing.repository import RepositoryParser, parse_repository_incremental_main
 from .core.models import Node, Edge
 
 __all__ = [
     "RepositoryParser",
-    "parse_repository_main", 
+    "parse_repository_incremental_main", 
     "Node",
     "Edge"
 ] 

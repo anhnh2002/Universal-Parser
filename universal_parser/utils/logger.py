@@ -31,19 +31,16 @@ noisy_loggers = [
 for log_name in noisy_loggers:
     logging.getLogger(log_name).setLevel(logging.ERROR)  # Only show errors and critical
 
-def set_log_level(level: str) -> None:
+def set_log_level(level: int) -> None:
     """Set the logging level for the application logger."""
-    numeric_level = getattr(logging, level.upper(), None)
-    if not isinstance(numeric_level, int):
-        raise ValueError(f'Invalid log level: {level}')
-    logger.setLevel(numeric_level)
+    logger.setLevel(level)
 
 # Function to demonstrate logger usage
 def test_logging():
     logger.debug("This is a debug message")
-    logger.info("This is an info message")
+    logger.debug("This is an info message")
     logger.warning("This is a warning message")
-    logger.error("This is an error message")
+    logger.debug("This is an error message")
 
 if __name__ == "__main__":
     test_logging() 

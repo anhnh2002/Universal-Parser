@@ -82,7 +82,7 @@ class DefinitionAnalyzer:
         except ValueError:
             raise ValueError(f"File '{absolute_file_path}' is not within repository '{repo_path}'")
         
-        logger.info(f"Analyzing definition for node '{node_name}' in file: {relative_file_path}")
+        logger.debug(f"Analyzing definition for node '{node_name}' in file: {relative_file_path}")
         
         # Find the specific node
         target_node = self._find_node_by_name_and_file(relative_file_path, node_name)
@@ -117,7 +117,7 @@ class DefinitionAnalyzer:
                 edge_types = [edge.type for edge in edges]
                 analysis.add_dependency(dependency_node, edge_types)
         
-        logger.info(
+        logger.debug(
             f"Found node '{node_name}' with {analysis.get_total_dependents()} dependents "
             f"and {analysis.get_total_dependencies()} dependencies"
         )
@@ -196,6 +196,7 @@ class DefinitionAnalyzer:
         Returns:
             Formatted string representation
         """
+
         lines = []
         
         # Node information
@@ -211,28 +212,24 @@ class DefinitionAnalyzer:
         lines.append("")
         
         # Dependencies (nodes this node depends on)
-        lines.append(f"## This node ({analysis.node.file_level_id}) depends on:")
         if analysis.dependencies:
+            lines.append(f"## This node ({analysis.node.file_level_id}) depends on:")
             for dependency_node, edge_types in analysis.dependencies:
                 edge_types_str = ", ".join(edge_types) if edge_types else "unknown"
                 lines.append(f"  {dependency_node.__repr__(include_absolute_path=True)} [dependency type: {edge_types_str}]")
-        else:
-            lines.append("  No dependencies found.")
-        lines.append("")
+            lines.append("")
         
         # Dependents (nodes that depend on this node)
-        lines.append(f"## Nodes depend on this node ({analysis.node.file_level_id}):")
         if analysis.dependents:
+            lines.append(f"## Nodes depend on this node ({analysis.node.file_level_id}):")
             for dependent_node, edge_types in analysis.dependents:
                 edge_types_str = ", ".join(edge_types) if edge_types else "unknown"
                 lines.append(f"  {dependent_node.__repr__(include_absolute_path=True)} [dependent type: {edge_types_str}]")
-        else:
-            lines.append("  No dependents found.")
         
         return '\n'.join(lines)
     
     @classmethod
-    def from_aggregated_results(cls, aggregated_results_path: str) -> "DefinitionAnalyzer":
+    def from_aggregated_results(cls, aggregated_results_path: str, on_demand: bool = False) -> "DefinitionAnalyzer":
         """
         Create a DefinitionAnalyzer from an aggregated results file.
         
@@ -242,5 +239,5 @@ class DefinitionAnalyzer:
         Returns:
             DefinitionAnalyzer instance
         """
-        graph_analyzer = GraphAnalyzer(aggregated_results_path)
+        graph_analyzer = GraphAnalyzer(aggregated_results_path, on_demand)
         return cls(graph_analyzer) 

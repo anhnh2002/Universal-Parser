@@ -49,11 +49,11 @@ def check_file_exists(file_path: str) -> bool:
     """Check if the aggregated results file exists"""
     path = Path(file_path)
     if not path.exists():
-        logger.error(f"File does not exist: {file_path}")
+        logger.debug(f"File does not exist: {file_path}")
         return False
     
     if not path.is_file():
-        logger.error(f"Path is not a file: {file_path}")
+        logger.debug(f"Path is not a file: {file_path}")
         return False
     
     if path.suffix.lower() != '.json':
@@ -115,7 +115,7 @@ Examples:
             print("✅ Neo4j connection successful!")
             sys.exit(0)
         except Exception as e:
-            logger.error(f"❌ Neo4j connection failed: {e}")
+            logger.debug(f"❌ Neo4j connection failed: {e}")
             sys.exit(1)
     
     # Validate file exists (unless stats-only)
@@ -130,16 +130,16 @@ Examples:
             try:
                 stats = service.get_repository_stats(args.repo)
                 if stats['total_nodes'] == 0:
-                    logger.info(f"No data found for repository: {args.repo}")
+                    logger.debug(f"No data found for repository: {args.repo}")
                 else:
                     print_stats(stats)
             finally:
                 service.close()
         else:
             # Load the data
-            logger.info(f"Loading aggregated results from: {args.file}")
-            logger.info(f"Repository name: {args.repo}")
-            logger.info(f"Clear existing data: {not args.no_clear}")
+            logger.debug(f"Loading aggregated results from: {args.file}")
+            logger.debug(f"Repository name: {args.repo}")
+            logger.debug(f"Clear existing data: {not args.no_clear}")
             
             result = load_aggregated_results_to_neo4j(
                 args.file,
@@ -165,10 +165,10 @@ Examples:
             print(f"   RETURN a.name, r.type, b.name LIMIT 10")
     
     except KeyboardInterrupt:
-        logger.info("Operation cancelled by user")
+        logger.debug("Operation cancelled by user")
         sys.exit(1)
     except Exception as e:
-        logger.error(f"Failed to load data: {e}")
+        logger.debug(f"Failed to load data: {e}")
         sys.exit(1)
 
 
