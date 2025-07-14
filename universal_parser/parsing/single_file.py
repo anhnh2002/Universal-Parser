@@ -282,10 +282,12 @@ async def extract_nodes_and_edges(
     try:
         formatted_ast = parse_ast(file_path)
     except Exception as e:
-        logger.warning(f"Error parsing AST for {file_path}: {e}")
-        logger.warning(f"Fallback to using raw file content for {file_path}")
-        with open(file_path, "r") as file:
-            formatted_ast = file.read()
+        logger.warning(f"Error parsing AST for {file_path}")
+        # logger.warning(f"Fallback to using raw file content for {file_path}")
+        logger.error(traceback.format_exc())
+        raise e
+        # with open(file_path, "r") as file:
+        #     formatted_ast = file.read()
     else:
         logger.debug(f"Successfully parsed AST for {file_path}")
 
