@@ -207,7 +207,10 @@ class DefinitionAnalyzer:
         # Code snippet
         lines.append("## Code Snippet:")
         lines.append("```")
-        lines.append(analysis.node.code_snippet.strip())
+        code_lines = analysis.node.code_snippet.strip().split('\n')
+        for line_idx, line in enumerate(code_lines):
+            line_number = analysis.node.start_line + line_idx + 1
+            lines.append(f"{line_number:6}\t{line}")
         lines.append("```")
         lines.append("")
         

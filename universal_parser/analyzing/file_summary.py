@@ -161,8 +161,13 @@ class FileSummaryAnalyzer:
         
         for i, node in enumerate(sorted_nodes):
             
-            # Show the node's first line
-            k_first_line = "\n".join(node.get_k_first_line(k=k))
+            # Show the node's first lines with line numbers
+            k_first_lines = node.get_k_first_line(k=k)
+            numbered_lines = []
+            for line_idx, line in enumerate(k_first_lines):
+                line_number = node.start_line + line_idx + 1
+                numbered_lines.append(f"{line_number:6}\t{line}")
+            k_first_line = "\n".join(numbered_lines)
             
             lines.append(node.__repr__(include_absolute_path=False))
             lines.append(f"{k_first_line}")
@@ -170,7 +175,7 @@ class FileSummaryAnalyzer:
             # Show elide message for remaining lines in this node (if any)
             if node.end_line > node.start_line + k:
                 elided_in_node = node.end_line - node.start_line - k
-                lines.append(f"... eliding {elided_in_node} more lines ...")
+                lines.append(f"\t... eliding {elided_in_node} more lines ...")
             
             lines.append("")  # Empty line between nodes
             

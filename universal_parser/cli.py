@@ -147,7 +147,6 @@ async def run_file_summary(args: argparse.Namespace) -> None:
         args.max_concurrent = 1
         aggregated_results_path = await run_parser(args)
 
-        
         # Create analyzer
         analyzer = FileSummaryAnalyzer.from_aggregated_results(aggregated_results_path)
         
