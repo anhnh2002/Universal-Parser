@@ -25,6 +25,8 @@ universal-parse get-definition --repo-dir /Users/anhnh/Documents/vscode/deepwiki
 
 universal-parse file-summary --repo-dir /Users/anhnh/Documents/vscode/deepwiki-agent-universal-parser/data/repos/titan-sight --output-dir ./volume --file-path /Users/anhnh/Documents/vscode/deepwiki-agent-universal-parser/data/repos/titan-sight/src/search/providers/base.py
 
+universal-parse file-summary --repo-dir /Users/anhnh/Documents/vscode/deepwiki-agent-universal-parser/data/repos/titan-sight --output-dir ./volume --file-path /Users/anhnh/Documents/vscode/deepwiki-agent-universal-parser/data/repos/titan-sight/src/test.py
+
 universal-parse file-summary --repo-dir /Users/anhnh/Documents/vscode/deepwiki-agent-universal-parser/data/repos/DocAgent --file-path src/dependency_analyzer/ast_parser.py
 
 universal-parse get-definition --repo-dir /Users/anhnh/Documents/vscode/deepwiki-agent-universal-parser/data/repos/DocAgent --file-path /Users/anhnh/Documents/vscode/deepwiki-agent-universal-parser/data/repos/DocAgent/src/dependency_analyzer/ast_parser.py --node-name DependencyParser

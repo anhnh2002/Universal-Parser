@@ -14,6 +14,11 @@ from ..utils.utils import list_files_at_level_minus_one
 
 import traceback
 
+# Constants
+CHUNKING_THRESHOLD = 1000  # Lines threshold for chunking
+CHUNK_SIZE = 800  # Target lines per chunk
+CHUNK_OVERLAP = 50  # Lines to overlap between chunks for context
+
 PROMPT_NORMALIZATION = """
 Extract nodes and edges from the following formated AST and project structure context.
 
@@ -270,6 +275,142 @@ def extract_code_snippet(file_path: str, start_line: int, end_line: int, absolut
         logger.debug(f"Error extracting code snippet from {file_path} (lines {start_line}-{end_line}): {e}")
         return ""
 
+# ------------------------------------------------------------
+# File Line Counting
+# ------------------------------------------------------------
+
+def count_file_lines(file_path: str) -> int:
+    """Count the number of lines in a file."""
+    try:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            return sum(1 for _ in file)
+    except Exception as e:
+        logger.warning(f"Error counting lines in {file_path}: {e}")
+        return 0
+
+# ------------------------------------------------------------
+# AST Chunking
+# ------------------------------------------------------------
+
+def chunk_formatted_ast(formatted_ast: str, file_header: str) -> list[str]:
+    """
+    Split formatted AST into chunks based on AST nodes to avoid breaking in the middle of nodes.
+    
+    Args:
+        formatted_ast: The formatted AST string
+        file_header: The file header (e.g., "File: path/to/file.py")
+        
+    Returns:
+        List of AST chunks, each with the file header
+    """
+    lines = formatted_ast.split('\n')
+    chunks = []
+    current_chunk = [file_header]
+    current_chunk_lines = 1
+    
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        
+        # Skip the file header if it's already in the original
+        if line.startswith("File: ") and i == 0:
+            i += 1
+            continue
+            
+        # Check if this is the start of a new node (Node type: ...)
+        if line.strip().startswith('Node type: '):
+            # If adding this node would exceed chunk size, start a new chunk
+            if current_chunk_lines > CHUNK_SIZE:
+                chunks.append('\n'.join(current_chunk))
+                current_chunk = [file_header]
+                current_chunk_lines = 1
+            
+            # Find the end of this node (next "Node type:" or end of content)
+            node_lines = [line]
+            j = i + 1
+            
+            # Read until we find the next node or reach the end
+            while j < len(lines):
+                next_line = lines[j]
+                if next_line.strip().startswith('Node type: '):
+                    break
+                node_lines.append(next_line)
+                j += 1
+            
+            # Add the complete node to current chunk
+            current_chunk.extend(node_lines)
+            current_chunk_lines += len(node_lines)
+            i = j
+        else:
+            # Add non-node lines
+            current_chunk.append(line)
+            current_chunk_lines += 1
+            i += 1
+    
+    # Add the last chunk if it has content
+    if len(current_chunk) > 1:  # More than just the header
+        chunks.append('\n'.join(current_chunk))
+    
+    # If no chunks were created but we have content, create a single chunk
+    if not chunks and formatted_ast.strip():
+        chunks.append(formatted_ast)
+    
+    logger.debug(f"Split AST into {len(chunks)} chunks")
+    return chunks
+
+# ------------------------------------------------------------
+# Chunk Processing
+# ------------------------------------------------------------
+
+async def process_chunk(
+    chunk: str,
+    file_tree: str,
+    file_path: str,
+    absolute_path_to_project: str,
+    chunk_index: int
+) -> tuple[list[Node], list[Edge]]:
+    """Process a single chunk of formatted AST."""
+    try:
+        prompt = PROMPT_NORMALIZATION.format(formatted_ast=chunk, file_tree=file_tree)
+        
+        logger.debug(f"Processing chunk {chunk_index + 1} for {file_path}")
+        nodes, edges = await parse_llm_response_with_retry(prompt, f"{file_path}_chunk_{chunk_index}", absolute_path_to_project)
+        
+        return nodes, edges
+    except Exception as e:
+        logger.error(f"Error processing chunk {chunk_index + 1} for {file_path}: {e}")
+        return [], []
+
+# ------------------------------------------------------------
+# Result Deduplication
+# ------------------------------------------------------------
+
+def deduplicate_results(all_nodes: list[Node], all_edges: list[Edge]) -> tuple[list[Node], list[Edge]]:
+    """Remove duplicate nodes and edges from combined results."""
+    # Deduplicate nodes by id
+    seen_nodes = set()
+    unique_nodes = []
+    for node in all_nodes:
+        if node.id not in seen_nodes:
+            seen_nodes.add(node.id)
+            unique_nodes.append(node)
+    
+    # Deduplicate edges by subject_id and object_id combination
+    seen_edges = set()
+    unique_edges = []
+    for edge in all_edges:
+        edge_key = (edge.subject_id, edge.object_id)
+        if edge_key not in seen_edges:
+            seen_edges.add(edge_key)
+            unique_edges.append(edge)
+    
+    logger.debug(f"Deduplicated {len(all_nodes)} nodes to {len(unique_nodes)} unique nodes")
+    logger.debug(f"Deduplicated {len(all_edges)} edges to {len(unique_edges)} unique edges")
+    
+    return unique_nodes, unique_edges
+
+# ------------------------------------------------------------
+
 async def extract_nodes_and_edges(
     file_path: str,
     absolute_path_to_project: str,
@@ -291,61 +432,70 @@ async def extract_nodes_and_edges(
     else:
         logger.debug(f"Successfully parsed AST for {file_path}")
 
-    formatted_ast = f"File: {relative_path}\n" + formatted_ast
-
-    prompt = PROMPT_NORMALIZATION.format(formatted_ast=formatted_ast, file_tree=list_files_at_level_minus_one(absolute_path_to_project, relative_path))
-
-    # Try to parse the JSON response with retry mechanism
-    try:
-        # save nodes and edges to json
+    # Determine if chunking is needed
+    total_lines = count_file_lines(file_path)
+    if total_lines >= CHUNKING_THRESHOLD:
+        logger.debug(f"File {file_path} exceeds chunking threshold ({CHUNKING_THRESHOLD} lines). Chunking AST.")
+        file_header = f"File: {relative_path}"
+        chunks = chunk_formatted_ast(formatted_ast, file_header)
+        
+        all_nodes = []
+        all_edges = []
+        
+        # Process each chunk separately
+        for i, chunk in enumerate(chunks):
+            nodes, edges = await process_chunk(chunk, list_files_at_level_minus_one(absolute_path_to_project, relative_path), relative_path, absolute_path_to_project, i)
+            if nodes:
+                all_nodes.extend(nodes)
+            if edges:
+                all_edges.extend(edges)
+        
+        # Deduplicate results across chunks
+        unique_nodes, unique_edges = deduplicate_results(all_nodes, all_edges)
+        logger.debug(f"Total nodes after deduplication: {len(unique_nodes)}")
+        logger.debug(f"Total edges after deduplication: {len(unique_edges)}")
+        
+        # Save combined results to json
         output_dir = os.path.join(output_dir, repo_name, *relative_path.split("/")[:-1])
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, relative_path.split("/")[-1] + ".json")
 
-        # if os.path.exists(output_path):
-        #     logger.debug(f"Skipping {file_path} because it already exists")
-        #     # read nodes and edges from json
-        #     with open(output_path, "r") as file:
-        #         result = json.load(file)
-        #         nodes = []
-        #         for node_data in result["nodes"]:
-        #             # Handle backward compatibility - add code_snippet if missing
-        #             if 'code_snippet' not in node_data:
-        #                 node_data['code_snippet'] = ""
-                    
-        #             _node = Node(**node_data)
-                    
-        #             # If code_snippet is empty, try to extract it
-        #             if not _node.code_snippet and _node.implementation_file:
-        #                 _node.code_snippet = extract_code_snippet(
-        #                     _node.implementation_file,
-        #                     _node.start_line,
-        #                     _node.end_line,
-        #                     absolute_path_to_project
-        #                 )
-                    
-        #             nodes.append(_node)
-                
-        #         edges = [Edge(**edge) for edge in result["edges"]]
-
-        #     await asyncio.sleep(1)
-
-        #     return nodes, edges
-
-        nodes, edges = await parse_llm_response_with_retry(prompt, file_path, absolute_path_to_project)
-
         with open(output_path, "w") as file:
-            json.dump({"nodes": [node.model_dump() for node in nodes], "edges": [edge.model_dump() for edge in edges]}, file, indent=4)
+            json.dump({"nodes": [node.model_dump() for node in unique_nodes], "edges": [edge.model_dump() for edge in unique_edges]}, file, indent=4)
 
         logger.debug(f"Successfully extracted nodes and edges for {file_path}. Result saved to {output_path}")
-
-        return nodes, edges
         
-    except Exception as e:
-        logger.debug(f"Error parsing LLM response for {file_path} after all retries: {e}")
-        logger.debug(traceback.format_exc())
-        logger.debug(f"This indicates a persistent issue with the LLM response format or content")
-        return None, None
+        return unique_nodes, unique_edges
+    else:
+        logger.debug(f"File {file_path} does not exceed chunking threshold ({CHUNKING_THRESHOLD} lines). Processing as a single chunk.")
+        
+        # Format the AST with file header
+        formatted_ast = f"File: {relative_path}\n" + formatted_ast
+        
+        # Create prompt
+        prompt = PROMPT_NORMALIZATION.format(formatted_ast=formatted_ast, file_tree=list_files_at_level_minus_one(absolute_path_to_project, relative_path))
+
+        # Try to parse the JSON response with retry mechanism
+        try:
+            # save nodes and edges to json
+            output_dir = os.path.join(output_dir, repo_name, *relative_path.split("/")[:-1])
+            os.makedirs(output_dir, exist_ok=True)
+            output_path = os.path.join(output_dir, relative_path.split("/")[-1] + ".json")
+
+            nodes, edges = await parse_llm_response_with_retry(prompt, file_path, absolute_path_to_project)
+
+            with open(output_path, "w") as file:
+                json.dump({"nodes": [node.model_dump() for node in nodes], "edges": [edge.model_dump() for edge in edges]}, file, indent=4)
+
+            logger.debug(f"Successfully extracted nodes and edges for {file_path}. Result saved to {output_path}")
+
+            return nodes, edges
+            
+        except Exception as e:
+            logger.debug(f"Error parsing LLM response for {file_path} after all retries: {e}")
+            logger.debug(traceback.format_exc())
+            logger.debug(f"This indicates a persistent issue with the LLM response format or content")
+            return None, None
 
 
 if __name__ == "__main__":

@@ -15,7 +15,8 @@ async def get_llm_response(prompt: str) -> str:
     response = await client.chat.completions.create(
         model=LLM_MODEL,
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.1
+        temperature=0.1,
+        max_tokens=16000
     )
 
     return response.choices[0].message.content.strip() 
