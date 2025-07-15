@@ -200,34 +200,40 @@ class DefinitionAnalyzer:
         lines = []
         
         # Node information
-        lines.append("## Node Metadata:")
-        lines.append(analysis.node.__repr__(include_absolute_path=True))
-        lines.append("")
+        # lines.append("## Node Metadata:")
+        # lines.append(analysis.node.__repr__(include_absolute_path=True))
+        # lines.append("")
         
         # Code snippet
-        lines.append("## Code Snippet:")
-        lines.append("```")
+        lines.append(f"# Implementation of `{analysis.node.file_level_id}`:")
+        # lines.append("```")
         code_lines = analysis.node.code_snippet.strip().split('\n')
         for line_idx, line in enumerate(code_lines):
             line_number = analysis.node.start_line + line_idx + 1
             lines.append(f"{line_number:6}\t{line}")
-        lines.append("```")
+        # lines.append("```")
         lines.append("")
+
+        metadata_lines = []
         
         # Dependencies (nodes this node depends on)
         if analysis.dependencies:
-            lines.append(f"## This node ({analysis.node.file_level_id}) depends on:")
+            metadata_lines.append(f"## This component ({analysis.node.file_level_id}) depends on:")
             for dependency_node, edge_types in analysis.dependencies:
                 edge_types_str = ", ".join(edge_types) if edge_types else "unknown"
-                lines.append(f"  {dependency_node.__repr__(include_absolute_path=True)} [dependency type: {edge_types_str}]")
-            lines.append("")
+                metadata_lines.append(f"  {dependency_node.__repr__(include_absolute_path=True)} [dependency type: {edge_types_str}]")
+            metadata_lines.append("")
         
         # Dependents (nodes that depend on this node)
         if analysis.dependents:
-            lines.append(f"## Nodes depend on this node ({analysis.node.file_level_id}):")
+            metadata_lines.append(f"## Components depend on this component ({analysis.node.file_level_id}):")
             for dependent_node, edge_types in analysis.dependents:
                 edge_types_str = ", ".join(edge_types) if edge_types else "unknown"
-                lines.append(f"  {dependent_node.__repr__(include_absolute_path=True)} [dependent type: {edge_types_str}]")
+                metadata_lines.append(f"  {dependent_node.__repr__(include_absolute_path=True)} [dependent type: {edge_types_str}]")
+        
+        if metadata_lines:
+            lines.append("# Extra dependencies information:")
+            lines.extend(metadata_lines)
         
         return '\n'.join(lines)
     
