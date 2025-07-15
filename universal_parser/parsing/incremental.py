@@ -127,11 +127,6 @@ class ChangeDetector:
             return True
             
         stat = file_path.stat()
-
-        print(f"File path: {file_path}")
-        print(f"Relative path: {relative_path}")
-        print(f"File metadata: {file_metadata}")
-        print(f"File stat: {stat}")
         
         # Check modification time
         if stat.st_mtime > file_metadata.last_modified:
