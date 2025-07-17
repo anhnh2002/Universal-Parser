@@ -442,9 +442,18 @@ async def extract_nodes_and_edges(
         all_nodes = []
         all_edges = []
         
-        # Process each chunk separately
-        for i, chunk in enumerate(chunks):
-            nodes, edges = await process_chunk(chunk, list_files_at_level_minus_one(absolute_path_to_project, relative_path), relative_path, absolute_path_to_project, i)
+        # Process chunks concurrently
+        file_tree = list_files_at_level_minus_one(absolute_path_to_project, relative_path)
+        tasks = [
+            process_chunk(chunk, file_tree, relative_path, absolute_path_to_project, i)
+            for i, chunk in enumerate(chunks)
+        ]
+        
+        # Wait for all chunks to complete
+        results = await asyncio.gather(*tasks)
+        
+        # Collect results from all chunks
+        for nodes, edges in results:
             if nodes:
                 all_nodes.extend(nodes)
             if edges:
